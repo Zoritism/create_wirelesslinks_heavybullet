@@ -2,6 +2,8 @@ package com.zoritism.wirelesslinks.foundation.gui.widget;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -47,7 +49,7 @@ public class IconButton extends AbstractWidget {
     }
 
     @Override
-    protected void onClick(double mouseX, double mouseY) {
+    public void onClick(double mouseX, double mouseY) {
         if (isActive() && isVisible()) {
             onPress.accept(this);
         }
@@ -101,5 +103,14 @@ public class IconButton extends AbstractWidget {
 
     public List<Component> getToolTip() {
         return toolTip;
+    }
+
+    @Override
+    public void updateWidgetNarration(NarrationElementOutput narration) {
+        if (!toolTip.isEmpty()) {
+            narration.add(NarratedElementType.TITLE, toolTip.get(0));
+        } else {
+            narration.add(NarratedElementType.TITLE, this.getMessage());
+        }
     }
 }
