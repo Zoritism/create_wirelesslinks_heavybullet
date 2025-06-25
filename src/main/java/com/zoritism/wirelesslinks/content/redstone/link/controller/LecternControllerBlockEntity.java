@@ -15,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -24,6 +25,9 @@ import net.minecraftforge.fml.DistExecutor;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Аналог Create: SmartBlockEntity для контроллера в лектюрне
+ */
 public class LecternControllerBlockEntity extends SmartBlockEntity {
 
     private CompoundTag controllerNbt = new CompoundTag();
@@ -57,6 +61,7 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
     @Override
     protected void read(CompoundTag tag, boolean clientPacket) {
         super.read(tag, clientPacket);
+        // Миграция, если есть старый тег
         if (tag.contains("Controller")) {
             controllerNbt = ItemStack.of(tag.getCompound("Controller")).getTag();
         } else {
@@ -166,7 +171,10 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
         if (playerEntity instanceof Player)
             stopUsing((Player) playerEntity);
 
-        Direction dir = state.getValue(/*YourLecternBlock.FACING*/ Direction.NORTH); // TODO: заменить на ваш FACING property
+        // Используйте FACING property блока, если реализован ваш лекторн, иначе временно NORTH
+        Direction dir = state.hasProperty(BlockStateProperties.FACING)
+                ? state.getValue(BlockStateProperties.FACING)
+                : Direction.NORTH;
         double x = worldPosition.getX() + 0.5 + 0.25 * dir.getStepX();
         double y = worldPosition.getY() + 1;
         double z = worldPosition.getZ() + 0.5 + 0.25 * dir.getStepZ();

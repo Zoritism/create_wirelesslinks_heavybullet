@@ -8,15 +8,12 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Пакет для передачи нажатий с Linked Controller с клиента на сервер.
- * Теперь полностью аналогичен Create, реализует ModPackets.SimplePacketBase.
- */
 public class LinkedControllerInputPacket extends LinkedControllerPacketBase implements ModPackets.SimplePacketBase {
 
     private Collection<Integer> activatedButtons;
@@ -56,7 +53,9 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
             if (player == null)
                 return;
             if (hasLectern()) {
-                handleLectern(player, getLecternController());
+                Level level = player.level();
+                LecternControllerBlockEntity lectern = getLectern(level, getLecternPos());
+                handleLectern(player, lectern);
             } else {
                 handleItem(player, getHeldController(player));
             }
@@ -64,14 +63,15 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
         return true;
     }
 
-    /** Аналогично Create: если в лекторате — используем контроллер из лектрона */
-    protected void handleLectern(ServerPlayer player, ItemStack lecternController) {
-        if (lecternController == null)
+    @Override
+    protected void handleLectern(ServerPlayer player, Object lecternGeneric) {
+        if (!(lecternGeneric instanceof LecternControllerBlockEntity lectern))
             return;
-        handleItem(player, lecternController);
+        if (lectern.isUsedBy(player))
+            handleItem(player, lectern.getController());
     }
 
-    /** Обработка нажатий с контроллера — логика аналогична Create */
+    @Override
     protected void handleItem(ServerPlayer player, ItemStack heldItem) {
         if (heldItem == null || !heldItem.is(ModItems.LINKED_CONTROLLER.get()))
             return;
@@ -94,25 +94,23 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
         );
     }
 
-    // --- Вспомогательные методы для "базы" пакетов ---
-
-    /** Для лектора: получить контроллер из лектрона, если есть */
-    protected ItemStack getLecternController() {
-        // Для совместимости с будущей реализацией лектрона
+    protected LecternControllerBlockEntity getLectern(Level level, BlockPos pos) {
+        if (level == null || pos == null)
+            return null;
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be instanceof LecternControllerBlockEntity l)
+            return l;
         return null;
     }
 
-    /** Проверяет, есть ли лекторн (lecternPos != null) */
     protected boolean hasLectern() {
         return getLecternPos() != null;
     }
 
-    /** Позиция лектрона (если пакет был отправлен из него) */
     protected BlockPos getLecternPos() {
-        return super.lecternPos;
+        return lecternPos;
     }
 
-    /** Получить контроллер из рук игрока */
     protected ItemStack getHeldController(ServerPlayer player) {
         ItemStack heldItem = player.getMainHandItem();
         if (heldItem.is(ModItems.LINKED_CONTROLLER.get()))
