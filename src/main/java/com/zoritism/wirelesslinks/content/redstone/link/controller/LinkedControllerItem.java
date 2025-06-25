@@ -119,12 +119,17 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		controller.getOrCreateTag().put("Items", inv.serializeNBT());
 	}
 
+	/**
+	 * Возвращает частотную пару для данного логического слота (0..11) контроллера.
+	 * ВАЖНО: Возвращает оригинальные ItemStack с их количеством и NBT — поведение полностью как у RedstoneLink.
+	 */
 	public static FrequencyPair slotToFrequency(ItemStack controller, int logicalSlot) {
 		ItemStackHandler inv = getFrequencyInventory(controller);
 		int aIdx = logicalSlot * 2;
 		int bIdx = aIdx + 1;
 		ItemStack a = inv.getStackInSlot(aIdx);
 		ItemStack b = inv.getStackInSlot(bIdx);
+		// --- ВАЖНО: возвращаем ItemStack с их count и NBT! ---
 		return FrequencyPair.of(a, b);
 	}
 
@@ -141,7 +146,17 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		});
 	}
 
+	/**
+	 * Передаёт сигнал по частоте, указанной в слоте контроллера.
+	 * @param level уровень
+	 * @param playerId UUID игрока
+	 * @param slotLogical логический слот (0..11)
+	 * @param pressed состояние нажатия (true/false)
+	 * @param heldPos позиция (обычно player.blockPosition() или lectern)
+	 */
 	public static void transmitPressedKeys(Level level, UUID playerId, int slotLogical, boolean pressed, BlockPos heldPos) {
+		// ВАЖНО: тут должен использоваться настоящий контроллер игрока
+		// (этот метод как пример, в реальной логике используйте контроллер из инвентаря игрока)
 		ItemStack controller = new ItemStack(ModItems.LINKED_CONTROLLER.get());
 		FrequencyPair pair = slotToFrequency(controller, slotLogical);
 
