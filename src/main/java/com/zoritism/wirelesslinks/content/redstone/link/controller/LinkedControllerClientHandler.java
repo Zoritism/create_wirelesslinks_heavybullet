@@ -10,6 +10,10 @@ import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
 import com.zoritism.wirelesslinks.util.Couple;
 
+// Импорт пакета для тестовой отправки
+import com.zoritism.wirelesslinks.foundation.network.ModPackets;
+import com.zoritism.wirelesslinks.foundation.network.TestPacket;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -26,10 +30,6 @@ import net.minecraftforge.client.gui.overlay.IGuiOverlay;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-// === Импорт для тестового пакета ===
-import com.zoritism.wirelesslinks.foundation.network.ModPackets;
-import com.zoritism.wirelesslinks.foundation.network.TestPacket;
-
 public class LinkedControllerClientHandler {
 
 	public static final IGuiOverlay OVERLAY = LinkedControllerClientHandler::renderOverlay;
@@ -42,7 +42,7 @@ public class LinkedControllerClientHandler {
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
 
-	// === Для теста F5 (однократное нажатие) ===
+	// Для трекинга F5
 	private static boolean prevF5Down = false;
 
 	public static void toggleBindMode(BlockPos location) {
