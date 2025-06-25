@@ -6,10 +6,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
-/**
- * Базовый класс для пакетов контроллера.
- * Адаптирован под wirelesslinks: без поддержки LecternControllerBlockEntity.
- */
 public abstract class LinkedControllerPacketBase {
 
     private BlockPos lecternPos;
@@ -47,7 +43,7 @@ public abstract class LinkedControllerPacketBase {
             if (player == null)
                 return;
 
-            // В твоём проекте LecternControllerBlockEntity не используется, оставляем только работу с предметом
+            // LecternControllerBlockEntity не используется — всегда работаем с предметом
             ItemStack controller = player.getMainHandItem();
             if (!isLinkedController(controller)) {
                 controller = player.getOffhandItem();
@@ -59,16 +55,12 @@ public abstract class LinkedControllerPacketBase {
         return true;
     }
 
-    /**
-     * Проверяет, является ли предмет контроллером.
-     * Здесь должен быть твой способ узнать контроллер (можно заменить на проверку по ModItems.LINKED_CONTROLLER)
-     */
     protected boolean isLinkedController(ItemStack stack) {
-        // Пример: return stack.getItem() == ModItems.LINKED_CONTROLLER.get();
-        // Заменить на свою проверку!
         return stack != null && stack.getItem().getDescriptionId().contains("linked_controller");
     }
 
     protected abstract void handleItem(ServerPlayer player, ItemStack heldItem);
+
+    @SuppressWarnings("unused")
     protected abstract void handleLectern(ServerPlayer player, Object lecternObj);
 }

@@ -1,5 +1,8 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
+import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.Frequency;
+import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
+import com.zoritism.wirelesslinks.util.Couple;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -67,7 +70,11 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase {
                 pos,
                 uniqueID,
                 activatedButtons.stream()
-                        .map(i -> LinkedControllerItem.slotToFrequency(heldItem, i))
+                        .map(i -> {
+                            FrequencyPair pair = LinkedControllerItem.slotToFrequency(heldItem, i);
+                            // FrequencyPair имеет методы getFirst() и getSecond() — они возвращают Frequency
+                            return Couple.of(pair.getFirst(), pair.getSecond());
+                        })
                         .collect(Collectors.toList()),
                 press
         );

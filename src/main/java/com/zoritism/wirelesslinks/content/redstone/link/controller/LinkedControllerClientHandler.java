@@ -6,6 +6,7 @@ import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.zoritism.wirelesslinks.foundation.network.ModPackets;
 import com.zoritism.wirelesslinks.registry.ModItems;
 
 import net.minecraft.ChatFormatting;
@@ -105,17 +106,24 @@ public class LinkedControllerClientHandler {
 		newKeys.removeAll(currentlyPressed);
 		releasedKeys.removeAll(pressedKeys);
 
-		// TODO: Networking (отправка нажатий)
+		// Networking (отправка нажатий)
 		if (MODE == Mode.ACTIVE) {
 			if (!releasedKeys.isEmpty()) {
-				// send packet to server (releasedKeys, false)
+				ModPackets.getChannel().sendToServer(
+						new LinkedControllerInputPacket(releasedKeys, false)
+				);
 			}
 			if (!newKeys.isEmpty()) {
-				// send packet to server (newKeys, true)
+				ModPackets.getChannel().sendToServer(
+						new LinkedControllerInputPacket(newKeys, true)
+				);
 				packetCooldown = PACKET_RATE;
 			}
 			if (packetCooldown == 0 && !pressedKeys.isEmpty()) {
-				// keepalive packet
+				// keepalive packet (для удержания)
+				ModPackets.getChannel().sendToServer(
+						new LinkedControllerInputPacket(pressedKeys, true)
+				);
 				packetCooldown = PACKET_RATE;
 			}
 		}

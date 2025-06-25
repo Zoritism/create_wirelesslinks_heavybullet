@@ -1,7 +1,8 @@
 package com.zoritism.wirelesslinks.foundation.network;
 
-import com.zoritism.wirelesslinks.WirelessLinksMod; // твой основной мод-класс, проверь имя!
+import com.zoritism.wirelesslinks.WirelessLinksMod;
 import com.zoritism.wirelesslinks.foundation.gui.menu.ClearMenuPacket;
+import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerInputPacket;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
@@ -21,7 +22,10 @@ import java.util.function.Supplier;
 public enum ModPackets {
 
     // Пример регистрации своего пакета (добавляй сюда другие пакеты по мере необходимости)
-    CLEAR_CONTAINER(ClearMenuPacket.class, ClearMenuPacket::new, NetworkDirection.PLAY_TO_SERVER);
+    CLEAR_CONTAINER(ClearMenuPacket.class, ClearMenuPacket::new, NetworkDirection.PLAY_TO_SERVER),
+
+    // Новый пакет контроллера!
+    LINKED_CONTROLLER_INPUT(LinkedControllerInputPacket.class, LinkedControllerInputPacket::new, NetworkDirection.PLAY_TO_SERVER);
 
     public static final ResourceLocation CHANNEL_NAME = new ResourceLocation(WirelessLinksMod.MODID, "main");
     public static final int NETWORK_VERSION = 1;
