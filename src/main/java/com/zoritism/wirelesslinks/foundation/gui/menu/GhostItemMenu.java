@@ -14,6 +14,9 @@ import net.minecraftforge.items.ItemStackHandler;
  * Абстрактный контейнер для ghost-инвентарей (по мотивам Create).
  * Позволяет реализовывать fake-слоты, которые только визуально отображают предметы.
  * Наследуйся от него для реализации ghost-меню (например, LinkedControllerMenu).
+ *
+ * Исправлено: теперь ghost-слоты сохраняют исходное количество предметов (count),
+ * что позволяет использовать их для частот, зависящих от количества (например, как в Redstone Link).
  */
 public abstract class GhostItemMenu<T> extends MenuBase<T> implements IClearableMenu {
 
@@ -88,7 +91,8 @@ public abstract class GhostItemMenu<T> extends MenuBase<T> implements IClearable
             insert = ItemStack.EMPTY;
         } else {
             insert = held.copy();
-            insert.setCount(1);
+            // Исправлено: Больше не нормализуем count к 1, сохраняем оригинальный размер стака
+            // insert.setCount(1); // удалено!
         }
         ghostInventory.setStackInSlot(slot, insert);
         getSlot(slotId).setChanged();
@@ -112,7 +116,8 @@ public abstract class GhostItemMenu<T> extends MenuBase<T> implements IClearable
                     break;
                 if (stack.isEmpty()) {
                     ItemStack copy = stackToInsert.copy();
-                    copy.setCount(1);
+                    // Исправлено: сохраняем оригинальное количество предметов
+                    // copy.setCount(1); // удалено!
                     ghostInventory.insertItem(i, copy, false);
                     getSlot(i + 36).setChanged();
                     break;

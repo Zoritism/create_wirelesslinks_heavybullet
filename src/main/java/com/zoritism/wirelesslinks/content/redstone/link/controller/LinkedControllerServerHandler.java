@@ -16,8 +16,8 @@ public class LinkedControllerServerHandler {
 
 	private static final Map<Level, Map<UUID, Collection<ManualFrequencyEntry>>> receivedInputs = new HashMap<>();
 
-	public static void tick(Level world) {
-		Map<UUID, Collection<ManualFrequencyEntry>> map = receivedInputs.get(world);
+	public static void tick(Level level) {
+		Map<UUID, Collection<ManualFrequencyEntry>> map = receivedInputs.get(level);
 		if (map == null)
 			return;
 
@@ -29,7 +29,7 @@ public class LinkedControllerServerHandler {
 				ManualFrequencyEntry manual = entryIt.next();
 				manual.decrement();
 				if (!manual.isAlive()) {
-					WirelessLinkNetworkHandler.removeFromNetwork(world, manual);
+					WirelessLinkNetworkHandler.removeFromNetwork(level, manual);
 					entryIt.remove();
 				}
 			}
@@ -39,14 +39,17 @@ public class LinkedControllerServerHandler {
 		}
 	}
 
-	public static void receivePressed(Level world, BlockPos pos, UUID playerId, List<Couple<Frequency>> keys, boolean pressed) {
+	public static void receivePressed(Level level, BlockPos pos, UUID playerId, List<Couple<Frequency>> frequencies, boolean pressed) {
+		System.out.println("[DEBUG] [SERVER] receivePressed: pos=" + pos + ", playerId=" + playerId
+				+ ", frequencies=" + frequencies + ", pressed=" + pressed);
+
 		Map<UUID, Collection<ManualFrequencyEntry>> worldMap =
-				receivedInputs.computeIfAbsent(world, w -> new HashMap<>());
+				receivedInputs.computeIfAbsent(level, w -> new HashMap<>());
 		Collection<ManualFrequencyEntry> list =
 				worldMap.computeIfAbsent(playerId, id -> new ArrayList<>());
 
 		nextKey:
-		for (Couple<Frequency> key : keys) {
+		for (Couple<Frequency> key : frequencies) {
 			for (ManualFrequencyEntry entry : list) {
 				if (entry.getNetworkKey().equals(key)) {
 					if (!pressed)
@@ -62,7 +65,7 @@ public class LinkedControllerServerHandler {
 
 			ManualFrequencyEntry newEntry = new ManualFrequencyEntry(pos, key);
 			list.add(newEntry);
-			WirelessLinkNetworkHandler.addToNetwork(world, newEntry);
+			WirelessLinkNetworkHandler.addToNetwork(level, newEntry);
 		}
 	}
 
