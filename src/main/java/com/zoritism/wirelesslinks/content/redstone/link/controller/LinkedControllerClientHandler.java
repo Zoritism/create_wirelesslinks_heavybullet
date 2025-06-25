@@ -1,7 +1,6 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
 import java.util.*;
-
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
@@ -24,9 +23,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.client.gui.overlay.ForgeGui;
 import net.minecraftforge.client.gui.overlay.IGuiOverlay;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class LinkedControllerClientHandler {
 
 	public static final IGuiOverlay OVERLAY = LinkedControllerClientHandler::renderOverlay;
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	public static Mode MODE = Mode.IDLE;
 	public static int PACKET_RATE = 5;
@@ -39,9 +42,11 @@ public class LinkedControllerClientHandler {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.BIND;
 			selectedLocation = location;
+			LOGGER.info("[Client] toggleBindMode: BIND mode enabled, selectedLocation={}", location);
 		} else {
 			MODE = Mode.IDLE;
 			onReset();
+			LOGGER.info("[Client] toggleBindMode: Switched to IDLE mode");
 		}
 	}
 
@@ -49,9 +54,11 @@ public class LinkedControllerClientHandler {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = null;
+			LOGGER.info("[Client] toggle: Switched to ACTIVE mode");
 		} else {
 			MODE = Mode.IDLE;
 			onReset();
+			LOGGER.info("[Client] toggle: Switched to IDLE mode");
 		}
 	}
 
@@ -59,6 +66,7 @@ public class LinkedControllerClientHandler {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = lecternAt;
+			LOGGER.info("[Client] activateInLectern: Activated in lectern at {}", lecternAt);
 		}
 	}
 
@@ -66,6 +74,7 @@ public class LinkedControllerClientHandler {
 		if (MODE == Mode.ACTIVE && inLectern()) {
 			MODE = Mode.IDLE;
 			onReset();
+			LOGGER.info("[Client] deactivateInLectern: Switched to IDLE mode from lectern");
 		}
 	}
 
@@ -80,12 +89,10 @@ public class LinkedControllerClientHandler {
 		lecternPos = null;
 		currentlyPressed.clear();
 		// TODO: сброс визуальных кнопок, если требуется
+		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared)");
 	}
 
 	public static void tick() {
-		// TODO: если есть кастомный рендерер, вызовите его tick() тут
-
-		// === ТЕСТ: делать всегда активный сигнал для всех частот, что указаны в контроллере ===
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
 		if (player != null) {
@@ -94,21 +101,20 @@ public class LinkedControllerClientHandler {
 				heldItem = player.getOffhandItem();
 			}
 			if (heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-				// Количество логических слотов (6 пар = 12 слотов)
 				int slotCount = 12;
 				for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
 					FrequencyPair pair = LinkedControllerItem.slotToFrequency(heldItem, logicalSlot);
-					// Если хоть одна из частот не пустая, считаем что нужно активировать сигнал
+					LOGGER.info("[Client] [Test] LogicalSlot {}: A={}, B={}", logicalSlot, pair.getFirst().getStack(), pair.getSecond().getStack());
 					if (!pair.getFirst().getStack().isEmpty() || !pair.getSecond().getStack().isEmpty()) {
 						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
-						// Всегда true (active)
+						LOGGER.info("[Client] [Test] Sending ACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
 						LinkedControllerServerHandler.receivePressed(
 								player.level(), player.blockPosition(), player.getUUID(),
 								Collections.singletonList(couple), true
 						);
 					} else {
-						// Если частоты пустые — сигнал не отправляем (или можно явно выключить)
 						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
+						LOGGER.info("[Client] [Test] Sending INACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
 						LinkedControllerServerHandler.receivePressed(
 								player.level(), player.blockPosition(), player.getUUID(),
 								Collections.singletonList(couple), false
@@ -127,6 +133,7 @@ public class LinkedControllerClientHandler {
 		if (player == null || player.isSpectator()) {
 			MODE = Mode.IDLE;
 			onReset();
+			LOGGER.info("[Client] tick: Player is null or spectator, switched to IDLE and reset");
 			return;
 		}
 
@@ -136,6 +143,7 @@ public class LinkedControllerClientHandler {
 			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
 				MODE = Mode.IDLE;
 				onReset();
+				LOGGER.info("[Client] tick: No linked controller in hand, switched to IDLE and reset");
 				return;
 			}
 		}
@@ -143,6 +151,7 @@ public class LinkedControllerClientHandler {
 		if (mc.screen != null || InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_ESCAPE)) {
 			MODE = Mode.IDLE;
 			onReset();
+			LOGGER.info("[Client] tick: Some screen opened or ESC pressed, switched to IDLE and reset");
 			return;
 		}
 
@@ -163,13 +172,16 @@ public class LinkedControllerClientHandler {
 			// TODO: отправка пакета newKeys (true)
 			// TODO: keepalive packet для всех нажатых pressedKeys (true)
 			if (!releasedKeys.isEmpty()) {
+				LOGGER.info("[Client] tick: releasedKeys={}", releasedKeys);
 				// send released packet
 			}
 			if (!newKeys.isEmpty()) {
+				LOGGER.info("[Client] tick: newKeys={}", newKeys);
 				// send pressed packet
 				packetCooldown = PACKET_RATE;
 			}
 			if (packetCooldown == 0 && !pressedKeys.isEmpty()) {
+				LOGGER.info("[Client] tick: keepalive for pressedKeys={}", pressedKeys);
 				// send keepalive packet
 				packetCooldown = PACKET_RATE;
 			}
@@ -178,6 +190,7 @@ public class LinkedControllerClientHandler {
 		if (MODE == Mode.BIND) {
 			// TODO: визуализация выделения блока (shape), если требуется
 			for (Integer integer : newKeys) {
+				LOGGER.info("[Client] tick: Bind mode, key pressed: {} (binding to block {})", integer, selectedLocation);
 				// TODO: отправка пакета бинда (integer, selectedLocation)
 				MODE = Mode.IDLE;
 				break;

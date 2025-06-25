@@ -10,9 +10,14 @@ import net.minecraft.world.level.Level;
 
 import java.util.*;
 
+// LOGGING
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class LinkedControllerServerHandler {
 
 	private static final int TIMEOUT = 30;
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	private static final Map<Level, Map<UUID, Collection<ManualFrequencyEntry>>> receivedInputs = new HashMap<>();
 
@@ -29,6 +34,7 @@ public class LinkedControllerServerHandler {
 				ManualFrequencyEntry manual = entryIt.next();
 				manual.decrement();
 				if (!manual.isAlive()) {
+					LOGGER.info("[SERVER] Removing expired ManualFrequencyEntry: pos={}, key={}", manual.getLocation(), manual.getNetworkKey());
 					WirelessLinkNetworkHandler.removeFromNetwork(level, manual);
 					entryIt.remove();
 				}
@@ -40,8 +46,7 @@ public class LinkedControllerServerHandler {
 	}
 
 	public static void receivePressed(Level level, BlockPos pos, UUID playerId, List<Couple<Frequency>> frequencies, boolean pressed) {
-		System.out.println("[DEBUG] [SERVER] receivePressed: pos=" + pos + ", playerId=" + playerId
-				+ ", frequencies=" + frequencies + ", pressed=" + pressed);
+		LOGGER.info("[SERVER] receivePressed: pos={}, playerId={}, frequencies={}, pressed={}", pos, playerId, frequencies, pressed);
 
 		Map<UUID, Collection<ManualFrequencyEntry>> worldMap =
 				receivedInputs.computeIfAbsent(level, w -> new HashMap<>());
@@ -52,20 +57,27 @@ public class LinkedControllerServerHandler {
 		for (Couple<Frequency> key : frequencies) {
 			for (ManualFrequencyEntry entry : list) {
 				if (entry.getNetworkKey().equals(key)) {
-					if (!pressed)
+					LOGGER.info("[SERVER] Existing frequency entry found for player={}, key={}, pressed={}", playerId, key, pressed);
+					if (!pressed) {
 						entry.setTimeout(0);
-					else
+						LOGGER.info("[SERVER] Frequency disabled: setTimeout(0) for key={}", key);
+					} else {
 						entry.updatePosition(pos);
+						LOGGER.info("[SERVER] Frequency refreshed: updatePosition({}) for key={}", pos, key);
+					}
 					continue nextKey;
 				}
 			}
 
-			if (!pressed)
+			if (!pressed) {
+				LOGGER.info("[SERVER] Not pressed and entry does not exist for key={}, skipping", key);
 				continue;
+			}
 
 			ManualFrequencyEntry newEntry = new ManualFrequencyEntry(pos, key);
 			list.add(newEntry);
 			WirelessLinkNetworkHandler.addToNetwork(level, newEntry);
+			LOGGER.info("[SERVER] Added new ManualFrequencyEntry: pos={}, key={}, player={}", pos, key, playerId);
 		}
 	}
 
@@ -83,6 +95,7 @@ public class LinkedControllerServerHandler {
 		public void updatePosition(BlockPos pos) {
 			this.pos = pos;
 			this.timeout = TIMEOUT;
+			LOGGER.info("[SERVER] ManualFrequencyEntry: updatePosition to {}, timeout reset to {}", pos, TIMEOUT);
 		}
 
 		public void decrement() {
@@ -92,6 +105,7 @@ public class LinkedControllerServerHandler {
 
 		public void setTimeout(int value) {
 			this.timeout = value;
+			LOGGER.info("[SERVER] ManualFrequencyEntry: setTimeout({}) for key={}", value, key);
 		}
 
 		@Override

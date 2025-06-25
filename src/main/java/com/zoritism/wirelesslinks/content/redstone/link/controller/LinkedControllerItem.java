@@ -33,10 +33,15 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+// LOGGING
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 @SuppressWarnings("deprecation")
 public class LinkedControllerItem extends Item implements MenuProvider {
 
 	public static final int SLOT_COUNT = 12 * 2;
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	public LinkedControllerItem(Properties props) {
 		super(props);
@@ -130,7 +135,9 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		ItemStack a = inv.getStackInSlot(aIdx);
 		ItemStack b = inv.getStackInSlot(bIdx);
 		// --- ВАЖНО: возвращаем ItemStack с их count и NBT! ---
-		return FrequencyPair.of(a, b);
+		FrequencyPair pair = FrequencyPair.of(a, b);
+		LOGGER.info("[slotToFrequency] logicalSlot={}, stackA={}, stackB={}, pair={}", logicalSlot, a, b, pair);
+		return pair;
 	}
 
 	@OnlyIn(Dist.CLIENT)
@@ -164,6 +171,9 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 			return;
 
 		Couple<Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
+
+		LOGGER.info("[transmitPressedKeys] level={}, playerId={}, slotLogical={}, pressed={}, heldPos={}, frequencyPair={}, couple={}",
+				level, playerId, slotLogical, pressed, heldPos, pair, couple);
 
 		LinkedControllerServerHandler.receivePressed(
 				level, heldPos, playerId,
