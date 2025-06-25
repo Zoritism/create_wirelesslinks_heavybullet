@@ -1,8 +1,6 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkBlock;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.Frequency;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
 import com.zoritism.wirelesslinks.registry.ModItems;
 import com.zoritism.wirelesslinks.util.Couple;
@@ -29,11 +27,8 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.extensions.common.IClientItemExtensions;
 import net.minecraftforge.items.ItemStackHandler;
 
-import java.util.List;
-import java.util.UUID;
 import java.util.function.Consumer;
 
-@SuppressWarnings("deprecation")
 public class LinkedControllerItem extends Item implements MenuProvider {
 
 	public static final int SLOT_COUNT = 12 * 2;
@@ -45,12 +40,14 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	@Override
 	public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext ctx) {
 		Player player = ctx.getPlayer();
-		if (player == null) return InteractionResult.PASS;
+		if (player == null)
+			return InteractionResult.PASS;
 
 		Level level = ctx.getLevel();
 		BlockPos pos = ctx.getClickedPos();
 		BlockState state = level.getBlockState(pos);
 
+		// Взаимодействие с Redstone Link для биндинга
 		if (state.getBlock() instanceof RedstoneLinkBlock) {
 			if (level.isClientSide) {
 				LinkedControllerClientHandler.toggleBindMode(pos);
@@ -60,6 +57,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 			return InteractionResult.SUCCESS;
 		}
 
+		// Вставка в лекторн
 		if (state.is(Blocks.LECTERN) && !state.getValue(LecternBlock.HAS_BOOK)) {
 			if (!level.isClientSide) {
 				ItemStack copy = player.isCreative() ? stack.copy() : stack.split(1);
@@ -75,18 +73,32 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
 		ItemStack stack = player.getItemInHand(hand);
 
-		if (player.isShiftKeyDown() && hand == InteractionHand.MAIN_HAND) {
-			if (!level.isClientSide && player instanceof ServerPlayer sp) {
+		// --- КАК В CREATE --- //
+		// Открытие меню частот по Ctrl+ПКМ (main hand)
+		if (isCtrlDown(player) && hand == InteractionHand.MAIN_HAND) {
+			if (!level.isClientSide && player instanceof ServerPlayer sp)
 				sp.openMenu(this);
-			}
 			return InteractionResultHolder.success(stack);
 		}
 
-		if (!player.isShiftKeyDown()) {
-			if (level.isClientSide) LinkedControllerClientHandler.toggle();
+		// Обычный ПКМ — включение режима управления (без Ctrl)
+		if (!isCtrlDown(player)) {
+			if (level.isClientSide)
+				LinkedControllerClientHandler.toggle();
 			player.getCooldowns().addCooldown(this, 5);
 		}
+
 		return InteractionResultHolder.pass(stack);
+	}
+
+	// Проверка нажатия Ctrl (как в Create)
+	private static boolean isCtrlDown(Player player) {
+		// На сервере или в headless режиме всегда false
+		if (player == null || player.level().isClientSide == false)
+			return false;
+		// На клиенте — используем системную клавишу (minecraft mapping)
+		// (В Create используется InputConstants и KeyMapping)
+		return net.minecraft.client.Minecraft.getInstance().options.keyControl.isDown();
 	}
 
 	@Override
@@ -104,9 +116,9 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		ItemStackHandler inv = new ItemStackHandler(SLOT_COUNT);
 		if (controller.getItem() != ModItems.LINKED_CONTROLLER.get())
 			return inv;
-
 		CompoundTag tag = controller.getOrCreateTagElement("Items");
-		if (!tag.isEmpty()) inv.deserializeNBT(tag);
+		if (!tag.isEmpty())
+			inv.deserializeNBT(tag);
 		return inv;
 	}
 
@@ -134,20 +146,5 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 				return renderer;
 			}
 		});
-	}
-
-	public static void transmitPressedKeys(Level level, UUID playerId, int slotLogical, boolean pressed, BlockPos heldPos) {
-		ItemStack controller = new ItemStack(ModItems.LINKED_CONTROLLER.get());
-		FrequencyPair pair = slotToFrequency(controller, slotLogical);
-
-		if (pair.getFirst().getStack().isEmpty() && pair.getSecond().getStack().isEmpty())
-			return;
-
-		Couple<Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
-
-		LinkedControllerServerHandler.receivePressed(
-				level, heldPos, playerId,
-				List.of(couple), pressed
-		);
 	}
 }

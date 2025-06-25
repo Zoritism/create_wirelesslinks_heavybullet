@@ -9,12 +9,17 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.SlotItemHandler;
 
+/**
+ * Меню контроллера — раскладка и поведение как в Create.
+ * Ghost-слоты (частоты кнопок), запрет любых перемещений между ghost-слотами и обычным инвентарём.
+ */
 public class LinkedControllerMenu extends AbstractContainerMenu {
 
 	private final ItemStack contentHolder;
 	private final ItemStackHandler ghostInventory;
 	protected final Inventory playerInventory;
 
+	// В Create стандарт: 12 ghost-слотов (3 строки по 4, W/A/S/D/Shift/Space/и т.д.)
 	public static final int SLOT_COUNT = 12;
 
 	public LinkedControllerMenu(MenuType<?> type, int id, Inventory inv, FriendlyByteBuf extraData) {
@@ -34,42 +39,65 @@ public class LinkedControllerMenu extends AbstractContainerMenu {
 	}
 
 	private void addSlots() {
-		int x = 12;
-		int y = 34;
+		// --- Ghost-слоты: 3 строки x 4 колонки (примерные координаты, подгоняйте под свой фон)
+		int baseX = 44, baseY = 26;
 		int slot = 0;
-
-		// Ghost-слоты (частоты)
-		for (int column = 0; column < 6; column++) {
-			for (int row = 0; row < 2; ++row)
-				this.addSlot(new SlotItemHandler(ghostInventory, slot++, x, y + row * 18) {
-					@Override
-					public boolean mayPickup(Player player) {
-						return false; // Ghost-слот, нельзя забирать
-					}
-
-					@Override
-					public boolean mayPlace(ItemStack stack) {
-						return true; // Можно класть любые предметы
-					}
-				});
-			x += 24;
-			if (column == 3)
-				x += 11;
+		for (int row = 0; row < 3; row++) {
+			for (int col = 0; col < 4; col++) {
+				int x = baseX + col * 22;
+				int y = baseY + row * 22;
+				this.addSlot(new GhostSlot(ghostInventory, slot++, x, y));
+			}
 		}
 
-		// Инвентарь игрока
-		for (int i = 0; i < 3; ++i)
-			for (int j = 0; j < 9; ++j)
-				this.addSlot(new Slot(playerInventory, j + i * 9 + 9, 8 + j * 18, 131 + i * 18));
+		// --- Инвентарь игрока (оставим стандартный нижний блок 3x9 + хотбар)
+		int invY = 104;
+		for (int row = 0; row < 3; ++row)
+			for (int col = 0; col < 9; ++col)
+				this.addSlot(new Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, invY + row * 18));
 
 		for (int k = 0; k < 9; ++k)
-			this.addSlot(new Slot(playerInventory, k, 8 + k * 18, 131 + 58));
+			this.addSlot(new Slot(playerInventory, k, 8 + k * 18, invY + 58));
+	}
+
+	// Ghost-слот: нельзя забирать, можно только класть (и только "фантомно", не уходит из инвентаря игрока)
+	public static class GhostSlot extends SlotItemHandler {
+		public GhostSlot(ItemStackHandler handler, int idx, int x, int y) {
+			super(handler, idx, x, y);
+		}
+
+		@Override
+		public boolean mayPickup(Player player) {
+			return false;
+		}
+
+		@Override
+		public boolean mayPlace(ItemStack stack) {
+			return true;
+		}
 	}
 
 	@Override
 	public void clicked(int slotId, int dragType, ClickType clickTypeIn, Player player) {
+		// Запретить "выброс" контроллера через Q/выкидывание из меню
 		if (slotId == playerInventory.selected && clickTypeIn != ClickType.THROW)
 			return;
+		// Ghost-слоты: заменять предметы только фантомно (как в Create)
+		if (slotId >= 0 && slotId < SLOT_COUNT) {
+			Slot slot = slots.get(slotId);
+			if (slot instanceof GhostSlot) {
+				ItemStack held = player.containerMenu.getCarried();
+				if (held.isEmpty()) {
+					slot.set(ItemStack.EMPTY);
+				} else {
+					ItemStack ghostCopy = held.copy();
+					ghostCopy.setCount(1);
+					slot.set(ghostCopy);
+				}
+				// Не вызываем super.clicked — исключаем дефолтное поведение!
+				return;
+			}
+		}
 		super.clicked(slotId, dragType, clickTypeIn, player);
 	}
 
@@ -80,7 +108,7 @@ public class LinkedControllerMenu extends AbstractContainerMenu {
 
 	@Override
 	public ItemStack quickMoveStack(Player playerIn, int index) {
-		// Нет автоматического перемещения
+		// Нет автоматического перемещения (shift-click)
 		return ItemStack.EMPTY;
 	}
 
@@ -107,16 +135,7 @@ public class LinkedControllerMenu extends AbstractContainerMenu {
 		LinkedControllerItem.saveFrequencyInventory(contentHolder, ghostInventory);
 	}
 
-	public LinkedControllerMenu(int id, Inventory inv, ItemStack heldItem) {
-		super(ModMenus.LINKED_CONTROLLER_MENU.get(), id);
-		this.playerInventory = inv;
-		this.contentHolder = heldItem;
-		this.ghostInventory = LinkedControllerItem.getFrequencyInventory(heldItem);
-		this.addSlots();
-	}
-
-
 	public void sendClearPacket() {
-		// TODO: Реализовать при наличии кнопки очистки и клиентского пакета
+		// TODO: Реализовать отправку на сервер (если кнопка Reset на клиенте)
 	}
 }

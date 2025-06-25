@@ -1,69 +1,120 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Inventory;
+import static com.zoritism.wirelesslinks.foundation.gui.AllGuiTextures.PLAYER_INVENTORY;
 
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 
-public class LinkedControllerScreen extends AbstractContainerScreen<LinkedControllerMenu> {
+import com.google.common.collect.ImmutableList;
+import com.zoritism.wirelesslinks.foundation.gui.AllGuiTextures;
+import com.zoritism.wirelesslinks.foundation.gui.AllIcons;
+import com.zoritism.wirelesslinks.foundation.gui.menu.AbstractSimiContainerScreen;
+import com.zoritism.wirelesslinks.foundation.gui.widget.IconButton;
+import com.zoritism.wirelesslinks.foundation.utility.ControlsUtil;
+import com.zoritism.wirelesslinks.foundation.utility.CreateLang;
 
-	private static final ResourceLocation TEXTURE = new ResourceLocation("minecraft", "textures/gui/container/generic_54.png");
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
 
-	private Button resetButton;
-	private Button confirmButton;
+public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedControllerMenu> {
+
+	protected AllGuiTextures background;
 	private List<Rect2i> extraAreas = Collections.emptyList();
+
+	private IconButton resetButton;
+	private IconButton confirmButton;
 
 	public LinkedControllerScreen(LinkedControllerMenu menu, Inventory inv, Component title) {
 		super(menu, inv, title);
-		this.imageWidth = 176;
-		this.imageHeight = 166;
+		this.background = AllGuiTextures.LINKED_CONTROLLER;
 	}
 
 	@Override
 	protected void init() {
+		setWindowSize(background.getWidth(), background.getHeight() + 4 + PLAYER_INVENTORY.getHeight());
+		setWindowOffset(1, 0);
 		super.init();
+
 		int x = leftPos;
 		int y = topPos;
 
-		resetButton = Button.builder(Component.literal("Reset"), button -> {
+		resetButton = new IconButton(x + background.getWidth() - 62, y + background.getHeight() - 24, AllIcons.I_TRASH);
+		resetButton.withCallback(() -> {
 			menu.clearContents();
 			menu.sendClearPacket();
-		}).bounds(x + 8, y + imageHeight - 25, 60, 20).build();
-
-		confirmButton = Button.builder(Component.literal("OK"), button -> {
+		});
+		confirmButton = new IconButton(x + background.getWidth() - 33, y + background.getHeight() - 24, AllIcons.I_CONFIRM);
+		confirmButton.withCallback(() -> {
 			if (minecraft != null && minecraft.player != null)
 				minecraft.player.closeContainer();
-		}).bounds(x + imageWidth - 68, y + imageHeight - 25, 60, 20).build();
+		});
 
 		addRenderableWidget(resetButton);
 		addRenderableWidget(confirmButton);
+
+		extraAreas = ImmutableList.of(new Rect2i(x + background.getWidth() + 4, y + background.getHeight() - 44, 64, 56));
 	}
 
 	@Override
 	protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
-		graphics.blit(TEXTURE, leftPos, topPos, 0, 0, imageWidth, imageHeight);
+		int invX = getLeftOfCentered(PLAYER_INVENTORY.getWidth());
+		int invY = topPos + background.getHeight() + 4;
+		renderPlayerInventory(graphics, invX, invY);
+
+		int x = leftPos;
+		int y = topPos;
+
+		background.render(graphics, x, y);
+		graphics.drawString(font, title, x + 15, y + 4, 0x592424, false);
+
+		// Если у вас есть аналог GuiGameElement, раскомментируйте и адаптируйте:
+		// GuiGameElement.of(menu.contentHolder).<GuiGameElement.GuiRenderBuilder>at(x + background.getWidth() - 4, y + background.getHeight() - 56, -200)
+		//     .scale(5)
+		//     .render(graphics);
 	}
 
 	@Override
-	protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-		graphics.drawString(font, title, 8, 6, 0x404040, false);
-		graphics.drawString(font, playerInventoryTitle, 8, imageHeight - 94, 0x404040, false);
+	protected void containerTick() {
+		if (!menu.player.getMainHandItem()
+				.equals(menu.contentHolder, false))
+			menu.player.closeContainer();
+
+		super.containerTick();
 	}
 
 	@Override
-	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-		renderBackground(graphics);
-		super.render(graphics, mouseX, mouseY, partialTicks);
-		renderTooltip(graphics, mouseX, mouseY);
+	protected void renderTooltip(GuiGraphics graphics, int x, int y) {
+		if (!menu.getCarried()
+				.isEmpty() || this.hoveredSlot == null || hoveredSlot.container == menu.playerInventory) {
+			super.renderTooltip(graphics, x, y);
+			return;
+		}
+
+		List<Component> list = new LinkedList<>();
+		if (hoveredSlot.hasItem())
+			list = getTooltipFromContainerItem(hoveredSlot.getItem());
+
+		graphics.renderComponentTooltip(font, addToTooltip(list, hoveredSlot.getSlotIndex()), x, y);
 	}
 
+	private List<Component> addToTooltip(List<Component> list, int slot) {
+		if (slot < 0 || slot >= 12)
+			return list;
+		list.add(CreateLang.translateDirect("linked_controller.frequency_slot_" + ((slot % 2) + 1), ControlsUtil.getControls()
+						.get(slot / 2)
+						.getTranslatedKeyMessage()
+						.getString())
+				.withStyle(ChatFormatting.GOLD));
+		return list;
+	}
+
+	@Override
 	public List<Rect2i> getExtraAreas() {
 		return extraAreas;
 	}
+
 }
