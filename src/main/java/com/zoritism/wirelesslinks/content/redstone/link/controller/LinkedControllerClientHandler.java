@@ -6,8 +6,6 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.zoritism.wirelesslinks.registry.ModItems;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
-import com.zoritism.wirelesslinks.util.Couple;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
@@ -25,7 +23,6 @@ import net.minecraftforge.client.gui.overlay.IGuiOverlay;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-// Импорт пакетов
 import com.zoritism.wirelesslinks.foundation.network.ModPackets;
 import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerInputPacket;
 
@@ -144,16 +141,16 @@ public class LinkedControllerClientHandler {
 			// === Реальная отправка пакетов на сервер ===
 			if (!releasedKeys.isEmpty()) {
 				LOGGER.info("[Client] tick: releasedKeys={}", releasedKeys);
-				ModPackets.CHANNEL.sendToServer(new LinkedControllerInputPacket(releasedKeys, false, getControllerPos(player)));
+				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(releasedKeys, false, getControllerPos(player)));
 			}
 			if (!newKeys.isEmpty()) {
 				LOGGER.info("[Client] tick: newKeys={}", newKeys);
-				ModPackets.CHANNEL.sendToServer(new LinkedControllerInputPacket(newKeys, true, getControllerPos(player)));
+				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(newKeys, true, getControllerPos(player)));
 				packetCooldown = PACKET_RATE;
 			}
 			if (packetCooldown == 0 && !pressedKeys.isEmpty()) {
 				LOGGER.info("[Client] tick: keepalive for pressedKeys={}", pressedKeys);
-				ModPackets.CHANNEL.sendToServer(new LinkedControllerInputPacket(pressedKeys, true, getControllerPos(player)));
+				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(pressedKeys, true, getControllerPos(player)));
 				packetCooldown = PACKET_RATE;
 			}
 		}

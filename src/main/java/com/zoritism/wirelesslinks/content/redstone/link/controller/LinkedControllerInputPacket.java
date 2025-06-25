@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 /**
  * Пакет для передачи нажатий с Linked Controller с клиента на сервер.
- * Адаптация под проект WirelessLinks (на основе Create).
+ * Совместимо с системой регистрации пакетов WirelessLinks & Create.
  */
 public class LinkedControllerInputPacket {
 
@@ -21,16 +21,19 @@ public class LinkedControllerInputPacket {
     private final boolean press;
     private final BlockPos lecternPos;
 
+    // Основной конструктор для отправки
     public LinkedControllerInputPacket(Collection<Integer> activatedButtons, boolean press, BlockPos lecternPos) {
         this.activatedButtons = new ArrayList<>(activatedButtons);
         this.press = press;
         this.lecternPos = lecternPos;
     }
 
+    // Вспомогательный конструктор (без lectern)
     public LinkedControllerInputPacket(Collection<Integer> activatedButtons, boolean press) {
         this(activatedButtons, press, null);
     }
 
+    // Конструктор для чтения с сети
     public LinkedControllerInputPacket(FriendlyByteBuf buffer) {
         if (buffer.readBoolean()) {
             this.lecternPos = buffer.readBlockPos();
@@ -45,6 +48,7 @@ public class LinkedControllerInputPacket {
         }
     }
 
+    // Сериализация
     public void write(FriendlyByteBuf buffer) {
         buffer.writeBoolean(lecternPos != null);
         if (lecternPos != null) {
@@ -58,32 +62,32 @@ public class LinkedControllerInputPacket {
     }
 
     /**
-     * Вызывается на сервере после получения пакета.
+     * Обработчик — вызывается на сервере из регистратора пакетов.
+     * (ctx.enqueueWork(() -> packet.handle(ctx.getSender()));)
      */
     public void handle(ServerPlayer player) {
-        // Если lecternPos != null, ищем Lectern и предмет, иначе используем предмет из руки
-        if (lecternPos != null) {
-            // TODO: логика поиска Lectern и получения контроллера, если потребуется
-            // Пока просто fallback на предмет из руки
-        }
+        if (player == null)
+            return;
 
+        // Если lecternPos != null, можно реализовать особую логику для lectern (как в Create)
+        // Сейчас просто используем контроллер из руки игрока
         ItemStack heldItem = getHeldController(player);
         if (heldItem == null || !heldItem.is(ModItems.LINKED_CONTROLLER.get()))
             return;
 
-        Level world = player.getCommandSenderWorld();
+        Level world = player.level();
         UUID uniqueID = player.getUUID();
         BlockPos pos = player.blockPosition();
 
         if (player.isSpectator() && press)
             return;
 
-        // Собираем частотные пары (FrequencyPair) для переданных индексов кнопок
+        // Собираем частотные пары для переданных индексов кнопок
         List<FrequencyPair> pairs = activatedButtons.stream()
                 .map(i -> LinkedControllerItem.slotToFrequency(heldItem, i))
                 .collect(Collectors.toList());
 
-        // Вызываем серверный обработчик
+        // Передаём на серверную логику
         LinkedControllerServerHandler.receivePressed(
                 world, pos, uniqueID,
                 pairs.stream().map(FrequencyPair::toCouple).collect(Collectors.toList()),
@@ -91,6 +95,7 @@ public class LinkedControllerInputPacket {
         );
     }
 
+    // Вспомогательный метод: возвращает контроллер из рук игрока
     private ItemStack getHeldController(ServerPlayer player) {
         ItemStack heldItem = player.getMainHandItem();
         if (heldItem.is(ModItems.LINKED_CONTROLLER.get()))

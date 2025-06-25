@@ -1,32 +1,31 @@
 package com.zoritism.wirelesslinks.foundation.gui.menu;
 
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
+import com.zoritism.wirelesslinks.foundation.network.ModPackets;
 
-import java.util.function.Supplier;
-
-/**
- * Пакет для очистки ghost-слотов меню. Аналог Create.
- */
-public class ClearMenuPacket {
+public class ClearMenuPacket implements ModPackets.SimplePacketBase {
 
     public ClearMenuPacket() {}
 
     public ClearMenuPacket(FriendlyByteBuf buffer) {}
 
-    public void write(FriendlyByteBuf buffer) {}
+    @Override
+    public void write(FriendlyByteBuf buffer) {
+        // Нет данных для записи
+    }
 
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> {
-            ServerPlayer player = context.get().getSender();
+    @Override
+    public boolean handle(NetworkEvent.Context context) {
+        context.enqueueWork(() -> {
+            var player = context.getSender();
             if (player == null)
                 return;
             if (!(player.containerMenu instanceof IClearableMenu clearable))
                 return;
             clearable.clearContents();
-            // Если требуется, можно добавить: ((MenuBase<?>) clearable).saveData(...)
+            // Можно добавить сохранение: ((MenuBase<?>) clearable).saveData(...)
         });
-        context.get().setPacketHandled(true);
+        return true;
     }
 }
