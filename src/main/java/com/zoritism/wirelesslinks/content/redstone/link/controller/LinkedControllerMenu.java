@@ -1,6 +1,10 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
 import com.zoritism.wirelesslinks.registry.ModMenus;
+// Импортируй свой класс пакетов, если он есть
+// import com.zoritism.wirelesslinks.network.ModPackets;
+// import com.zoritism.wirelesslinks.network.ClearLinkedControllerPacket;
+
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -19,7 +23,6 @@ public class LinkedControllerMenu extends AbstractContainerMenu {
 	private final ItemStackHandler ghostInventory;
 	protected final Inventory playerInventory;
 
-	// В Create стандарт: 12 ghost-слотов (2 строки по 6, см. addSlots)
 	public static final int SLOT_COUNT = 12;
 
 	public LinkedControllerMenu(MenuType<?> type, int id, Inventory inv, FriendlyByteBuf extraData) {
@@ -51,7 +54,7 @@ public class LinkedControllerMenu extends AbstractContainerMenu {
 				x += 11;
 		}
 
-		// --- Инвентарь игрока (3x9 + хотбар), выровнен как в Create
+		// --- Инвентарь игрока (3x9 + хотбар)
 		int playerInvX = 8, playerInvY = 131;
 		for (int row = 0; row < 3; ++row)
 			for (int col = 0; col < 9; ++col)
@@ -136,12 +139,11 @@ public class LinkedControllerMenu extends AbstractContainerMenu {
 		LinkedControllerItem.saveFrequencyInventory(contentHolder, ghostInventory);
 	}
 
-	// Реализуйте отправку пакета на сервер — пример для Forge:
+	// Реализуй отправку пакета на сервер — пример для Forge:
 	public void sendClearPacket() {
-		// Пример для Forge:
+		// Если используешь Forge:
 		// ModPackets.INSTANCE.sendToServer(new ClearLinkedControllerPacket(contentHolder));
-		// Для Fabric или другой системы сетевых пакетов — реализуйте аналогично!
-
-		// Если не реализуете пакет, Reset будет работать только на клиенте!
+		// Для Fabric или другой системы сетевых пакетов — реализуй аналогично!
+		// Если этот метод не реализован — Reset будет работать только на клиенте!
 	}
 }

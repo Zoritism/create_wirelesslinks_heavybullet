@@ -4,14 +4,10 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
 public enum AllGuiTextures {
-    // Пример — как в оригинальном Create
-    PLAYER_INVENTORY("wirelesslinks", "player_inventory", 0, 0, 176, 108),
-    // Используй curiosities_2.png для контроллера, координаты и размеры подбирай под свой арт
-    LINKED_CONTROLLER("wirelesslinks", "curiosities_2", 0, 0, 179, 109),
-    // Добавляй свои элементы по аналогии с Create
-    // ПРИМЕР: SOME_WIDGET("wirelesslinks", "widgets", 32, 16, 24, 24),
-
-    ;
+    // Важно: путь должен быть "textures/gui/player_inventory.png" (без namespace!)
+    PLAYER_INVENTORY("player_inventory", 176, 108),
+    // Контроллер: подбери размеры и координаты под свою текстуру
+    LINKED_CONTROLLER("curiosities_2", 179, 109);
 
     private final ResourceLocation location;
     private final int width;
@@ -19,12 +15,12 @@ public enum AllGuiTextures {
     private final int startX;
     private final int startY;
 
-    AllGuiTextures(String namespace, String sheet, int width, int height) {
-        this(namespace, sheet, 0, 0, width, height);
+    AllGuiTextures(String sheet, int width, int height) {
+        this(sheet, 0, 0, width, height);
     }
 
-    AllGuiTextures(String namespace, String sheet, int startX, int startY, int width, int height) {
-        this.location = new ResourceLocation(namespace, "textures/gui/" + sheet + ".png");
+    AllGuiTextures(String sheet, int startX, int startY, int width, int height) {
+        this.location = new ResourceLocation("wirelesslinks", "textures/gui/" + sheet + ".png");
         this.width = width;
         this.height = height;
         this.startX = startX;

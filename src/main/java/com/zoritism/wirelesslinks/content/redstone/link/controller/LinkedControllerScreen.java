@@ -41,14 +41,14 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		int x = leftPos;
 		int y = topPos;
 
-		// Reset — только очищает ghost-слоты и отправляет пакет, не закрывает интерфейс!
+		// Reset — очищает ghost-инвентарь и отправляет пакет на сервер, не закрывая интерфейс!
 		resetButton = new IconButton(x + background.getWidth() - 62, y + background.getHeight() - 24, AllIcons.I_TRASH);
 		resetButton.withCallback(() -> {
 			menu.clearContents();
-			menu.sendClearPacket(); // Реализуйте этот метод для отправки пакета на сервер!
+			menu.sendClearPacket();
 		});
 
-		// Confirm — только закрывает интерфейс
+		// Confirm — закрывает интерфейс
 		confirmButton = new IconButton(x + background.getWidth() - 33, y + background.getHeight() - 24, AllIcons.I_CONFIRM);
 		confirmButton.withCallback(() -> {
 			if (minecraft != null && minecraft.player != null)
@@ -65,7 +65,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
 		int invX = getLeftOfCentered(PLAYER_INVENTORY.getWidth());
 		int invY = topPos + background.getHeight() + 4;
-		renderPlayerInventory(graphics, invX, invY);
+		PLAYER_INVENTORY.render(graphics, invX, invY);
 
 		int x = leftPos;
 		int y = topPos;
