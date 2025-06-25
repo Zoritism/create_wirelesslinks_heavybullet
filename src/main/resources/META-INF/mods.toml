@@ -1,0 +1,26 @@
+modLoader="javafml"
+loaderVersion="[47,)" # поддерживает Forge 47.x
+license="MIT"
+
+[[mods]]
+modId="wirelesslinks"
+version="0.0.1"
+displayName="Wireless Links"
+authors="Zoritism"
+description='''
+Добавляет беспроводные редстоун-связи и контроллеры, основанные на Create.
+'''
+
+[[dependencies.wirelesslinks]]
+modId="forge"
+mandatory=true
+versionRange="[47.3.0,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.wirelesslinks]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1]"
+ordering="NONE"
+side="BOTH"
