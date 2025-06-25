@@ -38,6 +38,10 @@ public class LinkedControllerClientHandler {
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
 
+	static {
+		LOGGER.info("[WIRELESSLINKS] LinkedControllerClientHandler loaded");
+	}
+
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.BIND;
@@ -51,6 +55,7 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void toggle() {
+		LOGGER.info("[Client] toggle called. Previous mode: {}", MODE);
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = null;
@@ -63,6 +68,7 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void activateInLectern(BlockPos lecternAt) {
+		LOGGER.info("[Client] activateInLectern called. lecternAt: {}", lecternAt);
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = lecternAt;
@@ -71,6 +77,7 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void deactivateInLectern() {
+		LOGGER.info("[Client] deactivateInLectern called. MODE: {}, inLectern: {}", MODE, inLectern());
 		if (MODE == Mode.ACTIVE && inLectern()) {
 			MODE = Mode.IDLE;
 			onReset();
@@ -134,6 +141,7 @@ public class LinkedControllerClientHandler {
 				allKeys.add(i);
 			}
 			if (packetCooldown == 0) {
+				LOGGER.info("[Client] tick: About to send LinkedControllerInputPacket to server. keys={}, pos={}", allKeys, getControllerPos(player));
 				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(allKeys, true, getControllerPos(player)));
 				LOGGER.info("[Client] tick: ALL FREQUENCIES powered TRUE, sent to server, keys={}", allKeys);
 				packetCooldown = PACKET_RATE;

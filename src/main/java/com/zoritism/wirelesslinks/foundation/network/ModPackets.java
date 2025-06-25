@@ -42,9 +42,11 @@ public enum ModPackets {
 
     <T extends SimplePacketBase> ModPackets(Class<T> type, Function<FriendlyByteBuf, T> factory, NetworkDirection direction) {
         this.packetType = new PacketType<>(type, factory, direction);
+        LOGGER.info("[WIRELESSLINKS] ModPackets enum instance created for type: {}", type.getSimpleName());
     }
 
     public static void registerPackets() {
+        LOGGER.info("[WIRELESSLINKS] ModPackets.registerPackets() called");
         LOGGER.info("[PACKET] Registering channel and all packets...");
         channel = NetworkRegistry.ChannelBuilder.named(CHANNEL_NAME)
                 .serverAcceptedVersions(NETWORK_VERSION_STR::equals)
@@ -62,6 +64,8 @@ public enum ModPackets {
     public static SimpleChannel getChannel() {
         if (channel == null) {
             LOGGER.error("[PACKET] getChannel() called before registration! Channel is null.");
+        } else {
+            LOGGER.debug("[WIRELESSLINKS] getChannel() called, channel is not null");
         }
         return channel;
     }
@@ -103,6 +107,7 @@ public enum ModPackets {
             };
             this.type = type;
             this.direction = direction;
+            LOGGER.info("[WIRELESSLINKS] PacketType constructor for {}", type.getSimpleName());
         }
 
         private void register() {
