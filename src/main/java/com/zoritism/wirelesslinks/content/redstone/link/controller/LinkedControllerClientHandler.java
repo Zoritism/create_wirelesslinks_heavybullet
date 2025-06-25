@@ -10,7 +10,6 @@ import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
 import com.zoritism.wirelesslinks.util.Couple;
 
-// Импорт пакета для тестовой отправки
 import com.zoritism.wirelesslinks.foundation.network.ModPackets;
 import com.zoritism.wirelesslinks.foundation.network.TestPacket;
 
@@ -42,7 +41,6 @@ public class LinkedControllerClientHandler {
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
 
-	// Для трекинга F5
 	private static boolean prevF5Down = false;
 
 	public static void toggleBindMode(BlockPos location) {
@@ -95,7 +93,6 @@ public class LinkedControllerClientHandler {
 		selectedLocation = BlockPos.ZERO;
 		lecternPos = null;
 		currentlyPressed.clear();
-		// TODO: сброс визуальных кнопок, если требуется
 		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared)");
 	}
 
