@@ -29,7 +29,8 @@ import org.apache.logging.log4j.Logger;
 public enum ModPackets {
 
     CLEAR_CONTAINER(ClearMenuPacket.class, ClearMenuPacket::new, NetworkDirection.PLAY_TO_SERVER),
-    LINKED_CONTROLLER_INPUT(LinkedControllerInputPacket.class, LinkedControllerInputPacket::new, NetworkDirection.PLAY_TO_SERVER);
+    LINKED_CONTROLLER_INPUT(LinkedControllerInputPacket.class, LinkedControllerInputPacket::new, NetworkDirection.PLAY_TO_SERVER),
+    TEST_PACKET(TestPacket.class, TestPacket::new, NetworkDirection.PLAY_TO_SERVER); // Добавлено тестовое сообщение
 
     public static final ResourceLocation CHANNEL_NAME = new ResourceLocation(WirelessLinksMod.MODID, "main");
     public static final int NETWORK_VERSION = 1;
@@ -42,11 +43,9 @@ public enum ModPackets {
 
     <T extends SimplePacketBase> ModPackets(Class<T> type, Function<FriendlyByteBuf, T> factory, NetworkDirection direction) {
         this.packetType = new PacketType<>(type, factory, direction);
-        // LOGGER usage REMOVED from here! (was causing illegal reference to static field from initializer)
     }
 
     public static void registerPackets() {
-        LOGGER.info("[WIRELESSLINKS] ModPackets.registerPackets() called");
         LOGGER.info("[PACKET] Registering channel and all packets...");
         channel = NetworkRegistry.ChannelBuilder.named(CHANNEL_NAME)
                 .serverAcceptedVersions(NETWORK_VERSION_STR::equals)
@@ -64,8 +63,6 @@ public enum ModPackets {
     public static SimpleChannel getChannel() {
         if (channel == null) {
             LOGGER.error("[PACKET] getChannel() called before registration! Channel is null.");
-        } else {
-            LOGGER.debug("[WIRELESSLINKS] getChannel() called, channel is not null");
         }
         return channel;
     }
@@ -107,7 +104,6 @@ public enum ModPackets {
             };
             this.type = type;
             this.direction = direction;
-            // LOGGER usage REMOVED from here! (was causing illegal reference to static field from initializer)
         }
 
         private void register() {

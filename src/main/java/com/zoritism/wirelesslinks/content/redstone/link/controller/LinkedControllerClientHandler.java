@@ -6,6 +6,9 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.zoritism.wirelesslinks.registry.ModItems;
+import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency;
+import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
+import com.zoritism.wirelesslinks.util.Couple;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
@@ -23,9 +26,6 @@ import net.minecraftforge.client.gui.overlay.IGuiOverlay;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.zoritism.wirelesslinks.foundation.network.ModPackets;
-import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerInputPacket;
-
 public class LinkedControllerClientHandler {
 
 	public static final IGuiOverlay OVERLAY = LinkedControllerClientHandler::renderOverlay;
@@ -37,10 +37,6 @@ public class LinkedControllerClientHandler {
 	private static BlockPos lecternPos = null;
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
-
-	static {
-		LOGGER.info("[WIRELESSLINKS] LinkedControllerClientHandler loaded");
-	}
 
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
@@ -55,7 +51,6 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void toggle() {
-		LOGGER.info("[Client] toggle called. Previous mode: {}", MODE);
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = null;
@@ -68,7 +63,6 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void activateInLectern(BlockPos lecternAt) {
-		LOGGER.info("[Client] activateInLectern called. lecternAt: {}", lecternAt);
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = lecternAt;
@@ -77,7 +71,6 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void deactivateInLectern() {
-		LOGGER.info("[Client] deactivateInLectern called. MODE: {}, inLectern: {}", MODE, inLectern());
 		if (MODE == Mode.ACTIVE && inLectern()) {
 			MODE = Mode.IDLE;
 			onReset();
@@ -95,12 +88,42 @@ public class LinkedControllerClientHandler {
 		selectedLocation = BlockPos.ZERO;
 		lecternPos = null;
 		currentlyPressed.clear();
+		// TODO: сброс визуальных кнопок, если требуется
 		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared)");
 	}
 
 	public static void tick() {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
+		if (player != null) {
+			ItemStack heldItem = player.getMainHandItem();
+			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+				heldItem = player.getOffhandItem();
+			}
+			if (heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+				int slotCount = 12;
+				for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
+					FrequencyPair pair = LinkedControllerItem.slotToFrequency(heldItem, logicalSlot);
+					LOGGER.info("[Client] [Test] LogicalSlot {}: A={}, B={}", logicalSlot, pair.getFirst().getStack(), pair.getSecond().getStack());
+					if (!pair.getFirst().getStack().isEmpty() || !pair.getSecond().getStack().isEmpty()) {
+						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
+						LOGGER.info("[Client] [Test] Sending ACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
+						LinkedControllerServerHandler.receivePressed(
+								player.level(), player.blockPosition(), player.getUUID(),
+								Collections.singletonList(couple), true
+						);
+					} else {
+						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
+						LOGGER.info("[Client] [Test] Sending INACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
+						LinkedControllerServerHandler.receivePressed(
+								player.level(), player.blockPosition(), player.getUUID(),
+								Collections.singletonList(couple), false
+						);
+					}
+				}
+			}
+		}
+		// ===== Оригинальная логика ниже =====
 
 		if (MODE == Mode.IDLE)
 			return;
@@ -132,49 +155,52 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		// ----------- ОБНОВЛЁННЫЙ РЕЖИМ: ВСЕ ЧАСТОТЫ ВСЕГДА POWERED -----------
+		Vector<KeyMapping> controls = DefaultControls.getControls();
+		Set<Integer> pressedKeys = new HashSet<>();
+		for (int i = 0; i < controls.size(); i++) {
+			if (controls.get(i).isDown())
+				pressedKeys.add(i);
+		}
+
+		Set<Integer> newKeys = new HashSet<>(pressedKeys);
+		Set<Integer> releasedKeys = new HashSet<>(currentlyPressed);
+		newKeys.removeAll(currentlyPressed);
+		releasedKeys.removeAll(pressedKeys);
 
 		if (MODE == Mode.ACTIVE) {
-			Set<Integer> allKeys = new HashSet<>();
-			// Для 12 частот (0..11) — как в LinkedControllerItem.SLOT_COUNT/2
-			for (int i = 0; i < 12; i++) {
-				allKeys.add(i);
+			// TODO: отправка пакета releasedKeys (false)
+			// TODO: отправка пакета newKeys (true)
+			// TODO: keepalive packet для всех нажатых pressedKeys (true)
+			if (!releasedKeys.isEmpty()) {
+				LOGGER.info("[Client] tick: releasedKeys={}", releasedKeys);
+				// send released packet
 			}
-			if (packetCooldown == 0) {
-				LOGGER.info("[Client] tick: About to send LinkedControllerInputPacket to server. keys={}, pos={}", allKeys, getControllerPos(player));
-				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(allKeys, true, getControllerPos(player)));
-				LOGGER.info("[Client] tick: ALL FREQUENCIES powered TRUE, sent to server, keys={}", allKeys);
+			if (!newKeys.isEmpty()) {
+				LOGGER.info("[Client] tick: newKeys={}", newKeys);
+				// send pressed packet
 				packetCooldown = PACKET_RATE;
 			}
-			currentlyPressed = allKeys;
-		} else {
-			// Обычная логика "Bind mode" — не трогаем
-			Vector<KeyMapping> controls = DefaultControls.getControls();
-			Set<Integer> pressedKeys = new HashSet<>();
-			for (int i = 0; i < controls.size(); i++) {
-				if (controls.get(i).isDown())
-					pressedKeys.add(i);
+			if (packetCooldown == 0 && !pressedKeys.isEmpty()) {
+				LOGGER.info("[Client] tick: keepalive for pressedKeys={}", pressedKeys);
+				// send keepalive packet
+				packetCooldown = PACKET_RATE;
 			}
-			Set<Integer> newKeys = new HashSet<>(pressedKeys);
-			Set<Integer> releasedKeys = new HashSet<>(currentlyPressed);
-			newKeys.removeAll(currentlyPressed);
-			releasedKeys.removeAll(pressedKeys);
-
-			if (MODE == Mode.BIND) {
-				for (Integer integer : newKeys) {
-					LOGGER.info("[Client] tick: Bind mode, key pressed: {} (binding to block {})", integer, selectedLocation);
-					// Можно реализовать отдельный пакет для бинда
-					MODE = Mode.IDLE;
-					break;
-				}
-			}
-			currentlyPressed = pressedKeys;
-			controls.forEach(kb -> kb.setDown(false));
 		}
-	}
 
-	private static BlockPos getControllerPos(LocalPlayer player) {
-		return inLectern() ? lecternPos : player.blockPosition();
+		if (MODE == Mode.BIND) {
+			// TODO: визуализация выделения блока (shape), если требуется
+			for (Integer integer : newKeys) {
+				LOGGER.info("[Client] tick: Bind mode, key pressed: {} (binding to block {})", integer, selectedLocation);
+				// TODO: отправка пакета бинда (integer, selectedLocation)
+				MODE = Mode.IDLE;
+				break;
+			}
+		}
+
+		currentlyPressed = pressedKeys;
+
+		// Сбросить нажатие, чтобы движения игрока не происходили
+		controls.forEach(kb -> kb.setDown(false));
 	}
 
 	public static void renderOverlay(ForgeGui gui, GuiGraphics graphics, float partialTicks, int screenWidth, int screenHeight) {
