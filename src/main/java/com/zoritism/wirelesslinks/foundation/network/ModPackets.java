@@ -1,8 +1,8 @@
 package com.zoritism.wirelesslinks.foundation.network;
 
 import com.zoritism.wirelesslinks.WirelessLinksMod;
-import com.zoritism.wirelesslinks.foundation.gui.menu.ClearMenuPacket;
 import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerInputPacket;
+import com.zoritism.wirelesslinks.foundation.gui.menu.ClearMenuPacket;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
@@ -19,85 +19,56 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public enum ModPackets {
+/**
+ * Регистрация и отправка сетевых пакетов для WirelessLinks.
+ * Выполнено по образцу Create: каждый пакет регистрируется с encoder/decoder/handler.
+ */
+public class ModPackets {
 
-    // Пример регистрации своего пакета (добавляй сюда другие пакеты по мере необходимости)
-    CLEAR_CONTAINER(ClearMenuPacket.class, ClearMenuPacket::new, NetworkDirection.PLAY_TO_SERVER),
-
-    // Новый пакет контроллера!
-    LINKED_CONTROLLER_INPUT(LinkedControllerInputPacket.class, LinkedControllerInputPacket::new, NetworkDirection.PLAY_TO_SERVER);
-
+    public static final String PROTOCOL_VERSION = "1";
     public static final ResourceLocation CHANNEL_NAME = new ResourceLocation(WirelessLinksMod.MODID, "main");
-    public static final int NETWORK_VERSION = 1;
-    public static final String NETWORK_VERSION_STR = String.valueOf(NETWORK_VERSION);
-    private static SimpleChannel channel;
+    private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
+            CHANNEL_NAME,
+            () -> PROTOCOL_VERSION,
+            PROTOCOL_VERSION::equals,
+            PROTOCOL_VERSION::equals
+    );
 
-    private PacketType<?> packetType;
-
-    <T> ModPackets(Class<T> type, Function<FriendlyByteBuf, T> factory, NetworkDirection direction) {
-        packetType = new PacketType<>(type, factory, direction);
-    }
+    private static int index = 0;
 
     public static void registerPackets() {
-        channel = NetworkRegistry.ChannelBuilder.named(CHANNEL_NAME)
-                .serverAcceptedVersions(NETWORK_VERSION_STR::equals)
-                .clientAcceptedVersions(NETWORK_VERSION_STR::equals)
-                .networkProtocolVersion(() -> NETWORK_VERSION_STR)
-                .simpleChannel();
+        // Очистка контейнера (пример)
+        CHANNEL.registerMessage(index++,
+                ClearMenuPacket.class,
+                (pkt, buf) -> pkt.write(buf),
+                ClearMenuPacket::new,
+                (pkt, ctxSupplier) -> {
+                    pkt.handle(ctxSupplier);
+                },
+                NetworkDirection.PLAY_TO_SERVER
+        );
 
-        for (ModPackets packet : values())
-            packet.packetType.register();
-    }
-
-    public static SimpleChannel getChannel() {
-        return channel;
-    }
-
-    public static void sendToNear(Level world, BlockPos pos, int range, Object message) {
-        getChannel().send(
-                PacketDistributor.NEAR.with(TargetPoint.p(pos.getX(), pos.getY(), pos.getZ(), range, world.dimension())),
-                message
+        // Пакет контроллера (главное!)
+        CHANNEL.registerMessage(index++,
+                LinkedControllerInputPacket.class,
+                (pkt, buf) -> pkt.write(buf),
+                LinkedControllerInputPacket::new,
+                (pkt, ctxSupplier) -> {
+                    pkt.handle(ctxSupplier);
+                },
+                NetworkDirection.PLAY_TO_SERVER
         );
     }
 
-    private static class PacketType<T> {
-        private static int index = 0;
+    public static SimpleChannel getChannel() {
+        return CHANNEL;
+    }
 
-        private BiConsumer<T, FriendlyByteBuf> encoder;
-        private Function<FriendlyByteBuf, T> decoder;
-        private BiConsumer<T, Supplier<NetworkEvent.Context>> handler;
-        private Class<T> type;
-        private NetworkDirection direction;
-
-        @SuppressWarnings("unchecked")
-        private PacketType(Class<T> type, Function<FriendlyByteBuf, T> factory, NetworkDirection direction) {
-            // Если твои пакеты реализуют метод write(FriendlyByteBuf), используем его
-            this.encoder = (pkt, buf) -> {
-                try {
-                    type.getMethod("write", FriendlyByteBuf.class).invoke(pkt, buf);
-                } catch (Exception e) {
-                    throw new RuntimeException("Packet " + type.getName() + " must have method: void write(FriendlyByteBuf)", e);
-                }
-            };
-            this.decoder = factory;
-            this.handler = (packet, contextSupplier) -> {
-                try {
-                    // handle должен быть: public void handle(Supplier<NetworkEvent.Context> ctx)
-                    type.getMethod("handle", Supplier.class).invoke(packet, contextSupplier);
-                } catch (Exception e) {
-                    throw new RuntimeException("Packet " + type.getName() + " must have method: void handle(Supplier<NetworkEvent.Context>)", e);
-                }
-            };
-            this.type = type;
-            this.direction = direction;
-        }
-
-        private void register() {
-            getChannel().messageBuilder(type, index++, direction)
-                    .encoder(encoder)
-                    .decoder(decoder)
-                    .consumerNetworkThread(handler)
-                    .add();
-        }
+    /** Утилита для отправки пакета "рядом" с позицией (аналогично Create) */
+    public static void sendToNear(Level world, BlockPos pos, int range, Object message) {
+        CHANNEL.send(
+                PacketDistributor.NEAR.with(TargetPoint.p(pos.getX(), pos.getY(), pos.getZ(), range, world.dimension())),
+                message
+        );
     }
 }

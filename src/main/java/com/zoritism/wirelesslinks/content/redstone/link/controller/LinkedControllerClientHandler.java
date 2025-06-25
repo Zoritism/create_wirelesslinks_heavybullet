@@ -6,7 +6,6 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.zoritism.wirelesslinks.registry.ModItems;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
 import com.zoritism.wirelesslinks.util.Couple;
 
@@ -25,6 +24,10 @@ import net.minecraftforge.client.gui.overlay.IGuiOverlay;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+// Импорт пакетов
+import com.zoritism.wirelesslinks.foundation.network.ModPackets;
+import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerInputPacket;
 
 public class LinkedControllerClientHandler {
 
@@ -88,42 +91,12 @@ public class LinkedControllerClientHandler {
 		selectedLocation = BlockPos.ZERO;
 		lecternPos = null;
 		currentlyPressed.clear();
-		// TODO: сброс визуальных кнопок, если требуется
 		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared)");
 	}
 
 	public static void tick() {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
-		if (player != null) {
-			ItemStack heldItem = player.getMainHandItem();
-			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-				heldItem = player.getOffhandItem();
-			}
-			if (heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-				int slotCount = 12;
-				for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
-					FrequencyPair pair = LinkedControllerItem.slotToFrequency(heldItem, logicalSlot);
-					LOGGER.info("[Client] [Test] LogicalSlot {}: A={}, B={}", logicalSlot, pair.getFirst().getStack(), pair.getSecond().getStack());
-					if (!pair.getFirst().getStack().isEmpty() || !pair.getSecond().getStack().isEmpty()) {
-						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
-						LOGGER.info("[Client] [Test] Sending ACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
-						LinkedControllerServerHandler.receivePressed(
-								player.level(), player.blockPosition(), player.getUUID(),
-								Collections.singletonList(couple), true
-						);
-					} else {
-						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
-						LOGGER.info("[Client] [Test] Sending INACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
-						LinkedControllerServerHandler.receivePressed(
-								player.level(), player.blockPosition(), player.getUUID(),
-								Collections.singletonList(couple), false
-						);
-					}
-				}
-			}
-		}
-		// ===== Оригинальная логика ниже =====
 
 		if (MODE == Mode.IDLE)
 			return;
@@ -168,30 +141,27 @@ public class LinkedControllerClientHandler {
 		releasedKeys.removeAll(pressedKeys);
 
 		if (MODE == Mode.ACTIVE) {
-			// TODO: отправка пакета releasedKeys (false)
-			// TODO: отправка пакета newKeys (true)
-			// TODO: keepalive packet для всех нажатых pressedKeys (true)
+			// === Реальная отправка пакетов на сервер ===
 			if (!releasedKeys.isEmpty()) {
 				LOGGER.info("[Client] tick: releasedKeys={}", releasedKeys);
-				// send released packet
+				ModPackets.CHANNEL.sendToServer(new LinkedControllerInputPacket(releasedKeys, false, getControllerPos(player)));
 			}
 			if (!newKeys.isEmpty()) {
 				LOGGER.info("[Client] tick: newKeys={}", newKeys);
-				// send pressed packet
+				ModPackets.CHANNEL.sendToServer(new LinkedControllerInputPacket(newKeys, true, getControllerPos(player)));
 				packetCooldown = PACKET_RATE;
 			}
 			if (packetCooldown == 0 && !pressedKeys.isEmpty()) {
 				LOGGER.info("[Client] tick: keepalive for pressedKeys={}", pressedKeys);
-				// send keepalive packet
+				ModPackets.CHANNEL.sendToServer(new LinkedControllerInputPacket(pressedKeys, true, getControllerPos(player)));
 				packetCooldown = PACKET_RATE;
 			}
 		}
 
 		if (MODE == Mode.BIND) {
-			// TODO: визуализация выделения блока (shape), если требуется
 			for (Integer integer : newKeys) {
 				LOGGER.info("[Client] tick: Bind mode, key pressed: {} (binding to block {})", integer, selectedLocation);
-				// TODO: отправка пакета бинда (integer, selectedLocation)
+				// Можно реализовать отдельный пакет для бинда
 				MODE = Mode.IDLE;
 				break;
 			}
@@ -201,6 +171,10 @@ public class LinkedControllerClientHandler {
 
 		// Сбросить нажатие, чтобы движения игрока не происходили
 		controls.forEach(kb -> kb.setDown(false));
+	}
+
+	private static BlockPos getControllerPos(LocalPlayer player) {
+		return inLectern() ? lecternPos : player.blockPosition();
 	}
 
 	public static void renderOverlay(ForgeGui gui, GuiGraphics graphics, float partialTicks, int screenWidth, int screenHeight) {
