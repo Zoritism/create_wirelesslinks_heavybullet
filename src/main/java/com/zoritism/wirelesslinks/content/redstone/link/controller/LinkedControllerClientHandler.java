@@ -10,9 +10,6 @@ import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
 import com.zoritism.wirelesslinks.util.Couple;
 
-import com.zoritism.wirelesslinks.foundation.network.ModPackets;
-import com.zoritism.wirelesslinks.foundation.network.TestPacket;
-
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -23,12 +20,17 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.gui.overlay.ForgeGui;
 import net.minecraftforge.client.gui.overlay.IGuiOverlay;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.common.Mod;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+@Mod.EventBusSubscriber(modid = "wirelesslinks", value = Dist.CLIENT)
 public class LinkedControllerClientHandler {
 
 	public static final IGuiOverlay OVERLAY = LinkedControllerClientHandler::renderOverlay;
@@ -40,8 +42,6 @@ public class LinkedControllerClientHandler {
 	private static BlockPos lecternPos = null;
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
-
-	private static boolean prevF5Down = false;
 
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
@@ -93,23 +93,24 @@ public class LinkedControllerClientHandler {
 		selectedLocation = BlockPos.ZERO;
 		lecternPos = null;
 		currentlyPressed.clear();
+		// TODO: сброс визуальных кнопок, если требуется
 		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared)");
 	}
 
-	public static void tick() {
+	/**
+	 * Обработка нажатия F5 для тестовой отправки пакета.
+	 */
+	@SubscribeEvent
+	public static void onKeyInput(InputEvent.Key event) {
+		if (event.getKey() == GLFW.GLFW_KEY_F5 && event.getAction() == GLFW.GLFW_PRESS) {
+			sendTestPacket();
+		}
+	}
+
+	public static void sendTestPacket() {
+		LOGGER.info("[Client] F5 pressed! Sending test packet...");
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
-
-		// === ОТПРАВКА ТЕСТОВОГО ПАКЕТА ПО ОДНОКРАТНОМУ НАЖАТИЮ F5 ===
-		boolean f5Down = InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_F5);
-		if (f5Down && !prevF5Down) {
-			int testValue = (int) (Math.random() * 10000);
-			LOGGER.info("[TESTPACKET] Sending from client: {}", testValue);
-			ModPackets.getChannel().sendToServer(new TestPacket(testValue));
-		}
-		prevF5Down = f5Down;
-		// === КОНЕЦ ТЕСТА ===
-
 		if (player != null) {
 			ItemStack heldItem = player.getMainHandItem();
 			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
@@ -119,26 +120,34 @@ public class LinkedControllerClientHandler {
 				int slotCount = 12;
 				for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
 					FrequencyPair pair = LinkedControllerItem.slotToFrequency(heldItem, logicalSlot);
-					LOGGER.info("[Client] [Test] LogicalSlot {}: A={}, B={}", logicalSlot, pair.getFirst().getStack(), pair.getSecond().getStack());
+					LOGGER.info("[Client] [F5-Test] LogicalSlot {}: A={}, B={}", logicalSlot, pair.getFirst().getStack(), pair.getSecond().getStack());
 					if (!pair.getFirst().getStack().isEmpty() || !pair.getSecond().getStack().isEmpty()) {
 						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
-						LOGGER.info("[Client] [Test] Sending ACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
+						LOGGER.info("[Client] [F5-Test] Sending ACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
 						LinkedControllerServerHandler.receivePressed(
 								player.level(), player.blockPosition(), player.getUUID(),
 								Collections.singletonList(couple), true
 						);
 					} else {
 						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
-						LOGGER.info("[Client] [Test] Sending INACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
+						LOGGER.info("[Client] [F5-Test] Sending INACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
 						LinkedControllerServerHandler.receivePressed(
 								player.level(), player.blockPosition(), player.getUUID(),
 								Collections.singletonList(couple), false
 						);
 					}
 				}
+			} else {
+				LOGGER.info("[Client] [F5-Test] No linked controller in hand.");
 			}
+		} else {
+			LOGGER.info("[Client] [F5-Test] No player instance.");
 		}
-		// ===== Оригинальная логика ниже =====
+	}
+
+	public static void tick() {
+		Minecraft mc = Minecraft.getInstance();
+		LocalPlayer player = mc.player;
 
 		if (MODE == Mode.IDLE)
 			return;
