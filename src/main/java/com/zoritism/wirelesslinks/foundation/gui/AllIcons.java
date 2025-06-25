@@ -1,30 +1,28 @@
 package com.zoritism.wirelesslinks.foundation.gui;
 
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
-/**
- * Минималистичная версия AllIcons без зависимостей на Create.
- * Добавляйте новые иконки по мере необходимости.
- */
 public enum AllIcons {
-    I_TRASH("zoritism", "textures/gui/icons/trash.png"),
-    I_CONFIRM("zoritism", "textures/gui/icons/confirm.png");
-    // Добавляйте другие иконки по аналогии:
-    // I_ADD("zoritism", "textures/gui/icons/add.png"),
+    I_TRASH(0, 0),
+    I_CONFIRM(1, 0);
+    // Добавляйте новые иконки по аналогии: I_ADD(2, 0), ...
 
-    public final ResourceLocation location;
+    public static final ResourceLocation ICON_ATLAS = new ResourceLocation("wirelesslinks", "textures/gui/icons.png");
+    public static final int ICON_SIZE = 16; // пикселей
 
-    AllIcons(String namespace, String path) {
-        this.location = new ResourceLocation(namespace, path);
+    public final int iconX;
+    public final int iconY;
+
+    AllIcons(int x, int y) {
+        this.iconX = x * ICON_SIZE;
+        this.iconY = y * ICON_SIZE;
     }
 
     /**
-     * Нарисовать иконку на экране.
-     * @param graphics GuiGraphics для рендера
-     * @param x левый верхний угол
-     * @param y левый верхний угол
+     * Нарисовать иконку на экране (аналогично Create)
      */
-    public void render(net.minecraft.client.gui.GuiGraphics graphics, int x, int y) {
-        graphics.blit(location, x, y, 0, 0, 16, 16, 16, 16);
+    public void render(GuiGraphics graphics, int x, int y) {
+        graphics.blit(ICON_ATLAS, x, y, iconX, iconY, ICON_SIZE, ICON_SIZE, 256, 256);
     }
 }

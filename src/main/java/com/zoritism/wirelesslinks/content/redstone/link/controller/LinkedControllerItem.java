@@ -33,11 +33,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-// Добавлено для проверки нажатия Ctrl
-import net.minecraft.client.Minecraft;
-import com.mojang.blaze3d.platform.InputConstants;
-import org.lwjgl.glfw.GLFW;
-
 @SuppressWarnings("deprecation")
 public class LinkedControllerItem extends Item implements MenuProvider {
 
@@ -80,14 +75,15 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
 		ItemStack stack = player.getItemInHand(hand);
 
-		if (isCtrlDown() && hand == InteractionHand.MAIN_HAND) {
+		// Теперь открываем меню по Shift (как в Create), а не по Ctrl
+		if (player.isShiftKeyDown() && hand == InteractionHand.MAIN_HAND) {
 			if (!level.isClientSide && player instanceof ServerPlayer sp) {
-				sp.openMenu(this);
+				net.minecraftforge.network.NetworkHooks.openScreen(sp, this, buf -> buf.writeItem(stack));
 			}
 			return InteractionResultHolder.success(stack);
 		}
 
-		if (!isCtrlDown()) {
+		if (!player.isShiftKeyDown()) {
 			if (level.isClientSide) LinkedControllerClientHandler.toggle();
 			player.getCooldowns().addCooldown(this, 5);
 		}
@@ -154,16 +150,5 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 				level, heldPos, playerId,
 				List.of(couple), pressed
 		);
-	}
-
-	/**
-	 * Проверяет, зажат ли Ctrl на клиенте (аналог keyControl.isDown() из старых версий)
-	 */
-	public static boolean isCtrlDown() {
-		if (Minecraft.getInstance() == null || Minecraft.getInstance().getWindow() == null)
-			return false;
-		long window = Minecraft.getInstance().getWindow().getWindow();
-		return InputConstants.isKeyDown(window, GLFW.GLFW_KEY_LEFT_CONTROL)
-				|| InputConstants.isKeyDown(window, GLFW.GLFW_KEY_RIGHT_CONTROL);
 	}
 }

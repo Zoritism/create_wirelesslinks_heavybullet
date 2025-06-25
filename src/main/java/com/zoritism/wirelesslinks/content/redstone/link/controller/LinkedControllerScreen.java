@@ -1,6 +1,6 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
-import static com.zoritism.wirelesslinks.foundation.gui.AllGuiTextures.PLAYER_INVENTORY;
+// import static com.zoritism.wirelesslinks.foundation.gui.AllGuiTextures.PLAYER_INVENTORY; // УДАЛИТЬ
 
 import java.util.Collections;
 import java.util.LinkedList;
@@ -35,19 +35,19 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 
 	@Override
 	protected void init() {
-		setWindowSize(background.getWidth(), background.getHeight() + 4 + PLAYER_INVENTORY.getHeight());
+		setWindowSize(background.getWidth(), background.getHeight() + 4 + AllGuiTextures.PLAYER_INVENTORY.getHeight());
 		setWindowOffset(1, 0);
 		super.init();
 
 		int x = leftPos;
 		int y = topPos;
 
-		resetButton = new IconButton(x + background.getWidth() - 62, y + background.getHeight() - 24, AllIcons.I_TRASH.location);
+		resetButton = new IconButton(x + background.getWidth() - 62, y + background.getHeight() - 24, AllIcons.I_TRASH);
 		resetButton.withCallback(() -> {
 			menu.clearContents();
 			menu.sendClearPacket();
 		});
-		confirmButton = new IconButton(x + background.getWidth() - 33, y + background.getHeight() - 24, AllIcons.I_CONFIRM.location);
+		confirmButton = new IconButton(x + background.getWidth() - 33, y + background.getHeight() - 24, AllIcons.I_CONFIRM);
 		confirmButton.withCallback(() -> {
 			if (minecraft != null && minecraft.player != null)
 				minecraft.player.closeContainer();
@@ -61,7 +61,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 
 	@Override
 	protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
-		int invX = getLeftOfCentered(PLAYER_INVENTORY.getWidth());
+		int invX = getLeftOfCentered(AllGuiTextures.PLAYER_INVENTORY.getWidth());
 		int invY = topPos + background.getHeight() + 4;
 		renderPlayerInventory(graphics, invX, invY);
 
