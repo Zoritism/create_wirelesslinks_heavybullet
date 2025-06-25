@@ -6,7 +6,6 @@ import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.zoritism.wirelesslinks.foundation.network.ModPackets;
 import com.zoritism.wirelesslinks.registry.ModItems;
 
 import net.minecraft.ChatFormatting;
@@ -106,29 +105,25 @@ public class LinkedControllerClientHandler {
 		newKeys.removeAll(currentlyPressed);
 		releasedKeys.removeAll(pressedKeys);
 
-		// Networking (отправка нажатий)
+		// TODO: Networking (отправка нажатий)
 		if (MODE == Mode.ACTIVE) {
 			if (!releasedKeys.isEmpty()) {
-				ModPackets.getChannel().sendToServer(
-						new LinkedControllerInputPacket(releasedKeys, false)
-				);
+				// send packet to server (releasedKeys, false)
 			}
 			if (!newKeys.isEmpty()) {
-				ModPackets.getChannel().sendToServer(
-						new LinkedControllerInputPacket(newKeys, true)
-				);
+				// send packet to server (newKeys, true)
 				packetCooldown = PACKET_RATE;
 			}
 			if (packetCooldown == 0 && !pressedKeys.isEmpty()) {
-				// keepalive packet (для удержания)
-				ModPackets.getChannel().sendToServer(
-						new LinkedControllerInputPacket(pressedKeys, true)
-				);
+				// keepalive packet
 				packetCooldown = PACKET_RATE;
 			}
 		}
 
 		currentlyPressed = pressedKeys;
+
+		// ---- ВАЖНО: сбрасываем нажатие клавиш, чтобы Minecraft не двигал игрока ----
+		controls.forEach(kb -> kb.setDown(false));
 	}
 
 	public static void renderOverlay(ForgeGui gui, GuiGraphics graphics, float partialTicks, int screenWidth, int screenHeight) {
