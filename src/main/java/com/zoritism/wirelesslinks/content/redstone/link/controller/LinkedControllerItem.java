@@ -75,7 +75,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
 		ItemStack stack = player.getItemInHand(hand);
 
-		// Теперь открываем меню по Shift (как в Create), а не по Ctrl
+		// Открыть меню по Shift
 		if (player.isShiftKeyDown() && hand == InteractionHand.MAIN_HAND) {
 			if (!level.isClientSide && player instanceof ServerPlayer sp) {
 				net.minecraftforge.network.NetworkHooks.openScreen(sp, this, buf -> buf.writeItem(stack));
@@ -83,9 +83,11 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 			return InteractionResultHolder.success(stack);
 		}
 
+		// Активировать контроллер по обычному ПКМ
 		if (!player.isShiftKeyDown()) {
 			if (level.isClientSide) LinkedControllerClientHandler.toggle();
 			player.getCooldowns().addCooldown(this, 5);
+			return InteractionResultHolder.success(stack); // <--- ВАЖНО!
 		}
 		return InteractionResultHolder.pass(stack);
 	}
