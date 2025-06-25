@@ -20,7 +20,6 @@ import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-// Полностью по оригиналу Create, с учетом вашего namespace и импортов.
 public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedControllerMenu> {
 
 	protected AllGuiTextures background;
@@ -80,8 +79,9 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 
 	@Override
 	protected void containerTick() {
+		// Исправлено! Прямой доступ к полю contentHolder, как в оригинале Create
 		if (minecraft != null && minecraft.player != null &&
-				!minecraft.player.getMainHandItem().equals(menu.getContentHolder(), false))
+				!minecraft.player.getMainHandItem().equals(menu.contentHolder, false))
 			minecraft.player.closeContainer();
 
 		super.containerTick();
@@ -114,7 +114,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		return list;
 	}
 
-	@Override
+
 	public List<Rect2i> getExtraAreas() {
 		return extraAreas;
 	}
