@@ -14,11 +14,17 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 
+// LOGGING
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 @Mod(WirelessLinksMod.MODID)
 public class WirelessLinksMod {
     public static final String MODID = "wirelesslinks";
+    private static final Logger LOGGER = LogManager.getLogger();
 
     public WirelessLinksMod() {
+        LOGGER.info("[WIRELESSLINKS] Mod constructor started.");
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         // Регистрация всех компонентов
@@ -38,9 +44,15 @@ public class WirelessLinksMod {
 
         // Клиентская инициализация
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> ClientInit::init);
+
+        LOGGER.info("[WIRELESSLINKS] Mod constructor finished.");
     }
 
     private void onCommonSetup(final FMLCommonSetupEvent event) {
-        event.enqueueWork(ModPackets::registerPackets);
+        LOGGER.info("[WIRELESSLINKS] onCommonSetup called, registering packets...");
+        event.enqueueWork(() -> {
+            LOGGER.info("[WIRELESSLINKS] Calling ModPackets.registerPackets()");
+            ModPackets.registerPackets();
+        });
     }
 }
