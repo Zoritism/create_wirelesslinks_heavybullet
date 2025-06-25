@@ -19,7 +19,7 @@ public class LinkedControllerMenu extends AbstractContainerMenu {
 	private final ItemStackHandler ghostInventory;
 	protected final Inventory playerInventory;
 
-	// В Create стандарт: 12 ghost-слотов (3 строки по 4, W/A/S/D/Shift/Space/и т.д.)
+	// В Create стандарт: 12 ghost-слотов (2 строки по 6, см. addSlots)
 	public static final int SLOT_COUNT = 12;
 
 	public LinkedControllerMenu(MenuType<?> type, int id, Inventory inv, FriendlyByteBuf extraData) {
@@ -39,25 +39,26 @@ public class LinkedControllerMenu extends AbstractContainerMenu {
 	}
 
 	private void addSlots() {
-		// --- Ghost-слоты: 3 строки x 4 колонки (примерные координаты, подгоняйте под свой фон)
-		int baseX = 44, baseY = 26;
+		// --- Ghost-слоты как в Create
+		int x = 12;
+		int y = 34;
 		int slot = 0;
-		for (int row = 0; row < 3; row++) {
-			for (int col = 0; col < 4; col++) {
-				int x = baseX + col * 22;
-				int y = baseY + row * 22;
-				this.addSlot(new GhostSlot(ghostInventory, slot++, x, y));
-			}
+		for (int column = 0; column < 6; column++) {
+			for (int row = 0; row < 2; ++row)
+				this.addSlot(new GhostSlot(ghostInventory, slot++, x, y + row * 18));
+			x += 24;
+			if (column == 3)
+				x += 11;
 		}
 
-		// --- Инвентарь игрока (оставим стандартный нижний блок 3x9 + хотбар)
-		int invY = 104;
+		// --- Инвентарь игрока (3x9 + хотбар), выровнен как в Create
+		int playerInvX = 8, playerInvY = 131;
 		for (int row = 0; row < 3; ++row)
 			for (int col = 0; col < 9; ++col)
-				this.addSlot(new Slot(playerInventory, col + row * 9 + 9, 8 + col * 18, invY + row * 18));
+				this.addSlot(new Slot(playerInventory, col + row * 9 + 9, playerInvX + col * 18, playerInvY + row * 18));
 
 		for (int k = 0; k < 9; ++k)
-			this.addSlot(new Slot(playerInventory, k, 8 + k * 18, invY + 58));
+			this.addSlot(new Slot(playerInventory, k, playerInvX + k * 18, playerInvY + 58));
 	}
 
 	// Ghost-слот: нельзя забирать, можно только класть (и только "фантомно", не уходит из инвентаря игрока)

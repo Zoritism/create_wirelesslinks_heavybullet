@@ -5,7 +5,7 @@ import net.minecraft.resources.ResourceLocation;
 
 public enum AllGuiTextures {
     // Пример — как в оригинальном Create
-    PLAYER_INVENTORY("minecraft", "container/inventory", 0, 0, 176, 108),
+    PLAYER_INVENTORY("wirelesslinks", "player_inventory", 0, 0, 176, 108),
     // Используй curiosities_2.png для контроллера, координаты и размеры подбирай под свой арт
     LINKED_CONTROLLER("wirelesslinks", "curiosities_2", 0, 0, 179, 109),
     // Добавляй свои элементы по аналогии с Create
