@@ -45,6 +45,14 @@ public class LinkedControllerServerHandler {
 		}
 	}
 
+	/**
+	 * Обрабатывает сигнал с контроллера:
+	 * - Если pressed=true, поддерживает или добавляет ManualFrequencyEntry для каждой частоты
+	 * - Если pressed=false, выключает соответствующую частоту для игрока
+	 *
+	 * Важно: если на клиенте отправляются все частоты каждый тик с pressed=true,
+	 * то сигнал по всем частотам будет всегда активен.
+	 */
 	public static void receivePressed(Level level, BlockPos pos, UUID playerId, List<Couple<Frequency>> frequencies, boolean pressed) {
 		LOGGER.info("[SERVER] receivePressed: pos={}, playerId={}, frequencies={}, pressed={}", pos, playerId, frequencies, pressed);
 
@@ -53,6 +61,7 @@ public class LinkedControllerServerHandler {
 		Collection<ManualFrequencyEntry> list =
 				worldMap.computeIfAbsent(playerId, id -> new ArrayList<>());
 
+		// Обрабатываем каждую частоту отдельно
 		nextKey:
 		for (Couple<Frequency> key : frequencies) {
 			for (ManualFrequencyEntry entry : list) {
@@ -74,11 +83,14 @@ public class LinkedControllerServerHandler {
 				continue;
 			}
 
+			// pressed == true и такой частоты ещё нет
 			ManualFrequencyEntry newEntry = new ManualFrequencyEntry(pos, key);
 			list.add(newEntry);
 			WirelessLinkNetworkHandler.addToNetwork(level, newEntry);
 			LOGGER.info("[SERVER] Added new ManualFrequencyEntry: pos={}, key={}, player={}", pos, key, playerId);
 		}
+
+		// Если pressed==false и какая-то частота не была найдена, ничего не делаем (она и так выключена)
 	}
 
 	public static class ManualFrequencyEntry implements IRedstoneLinkable {
@@ -133,7 +145,7 @@ public class LinkedControllerServerHandler {
 
 		@Override
 		public Couple<ItemStack> getFrequency() {
-			// Возвращает пустую частоту, так как используется только ключ
+			// Возвращает пустую частоту, т.к. используется только ключ
 			return Couple.of(ItemStack.EMPTY, ItemStack.EMPTY);
 		}
 

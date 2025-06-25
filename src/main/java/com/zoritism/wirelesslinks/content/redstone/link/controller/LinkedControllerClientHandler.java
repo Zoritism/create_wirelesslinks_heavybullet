@@ -125,49 +125,44 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		Vector<KeyMapping> controls = DefaultControls.getControls();
-		Set<Integer> pressedKeys = new HashSet<>();
-		for (int i = 0; i < controls.size(); i++) {
-			if (controls.get(i).isDown())
-				pressedKeys.add(i);
-		}
-
-		Set<Integer> newKeys = new HashSet<>(pressedKeys);
-		Set<Integer> releasedKeys = new HashSet<>(currentlyPressed);
-		newKeys.removeAll(currentlyPressed);
-		releasedKeys.removeAll(pressedKeys);
+		// ----------- ОБНОВЛЁННЫЙ РЕЖИМ: ВСЕ ЧАСТОТЫ ВСЕГДА POWERED -----------
 
 		if (MODE == Mode.ACTIVE) {
-			// === Реальная отправка пакетов на сервер ===
-			if (!releasedKeys.isEmpty()) {
-				LOGGER.info("[Client] tick: releasedKeys={}", releasedKeys);
-				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(releasedKeys, false, getControllerPos(player)));
+			Set<Integer> allKeys = new HashSet<>();
+			// Для 12 частот (0..11) — как в LinkedControllerItem.SLOT_COUNT/2
+			for (int i = 0; i < 12; i++) {
+				allKeys.add(i);
 			}
-			if (!newKeys.isEmpty()) {
-				LOGGER.info("[Client] tick: newKeys={}", newKeys);
-				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(newKeys, true, getControllerPos(player)));
+			if (packetCooldown == 0) {
+				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(allKeys, true, getControllerPos(player)));
+				LOGGER.info("[Client] tick: ALL FREQUENCIES powered TRUE, sent to server, keys={}", allKeys);
 				packetCooldown = PACKET_RATE;
 			}
-			if (packetCooldown == 0 && !pressedKeys.isEmpty()) {
-				LOGGER.info("[Client] tick: keepalive for pressedKeys={}", pressedKeys);
-				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(pressedKeys, true, getControllerPos(player)));
-				packetCooldown = PACKET_RATE;
+			currentlyPressed = allKeys;
+		} else {
+			// Обычная логика "Bind mode" — не трогаем
+			Vector<KeyMapping> controls = DefaultControls.getControls();
+			Set<Integer> pressedKeys = new HashSet<>();
+			for (int i = 0; i < controls.size(); i++) {
+				if (controls.get(i).isDown())
+					pressedKeys.add(i);
 			}
-		}
+			Set<Integer> newKeys = new HashSet<>(pressedKeys);
+			Set<Integer> releasedKeys = new HashSet<>(currentlyPressed);
+			newKeys.removeAll(currentlyPressed);
+			releasedKeys.removeAll(pressedKeys);
 
-		if (MODE == Mode.BIND) {
-			for (Integer integer : newKeys) {
-				LOGGER.info("[Client] tick: Bind mode, key pressed: {} (binding to block {})", integer, selectedLocation);
-				// Можно реализовать отдельный пакет для бинда
-				MODE = Mode.IDLE;
-				break;
+			if (MODE == Mode.BIND) {
+				for (Integer integer : newKeys) {
+					LOGGER.info("[Client] tick: Bind mode, key pressed: {} (binding to block {})", integer, selectedLocation);
+					// Можно реализовать отдельный пакет для бинда
+					MODE = Mode.IDLE;
+					break;
+				}
 			}
+			currentlyPressed = pressedKeys;
+			controls.forEach(kb -> kb.setDown(false));
 		}
-
-		currentlyPressed = pressedKeys;
-
-		// Сбросить нажатие, чтобы движения игрока не происходили
-		controls.forEach(kb -> kb.setDown(false));
 	}
 
 	private static BlockPos getControllerPos(LocalPlayer player) {
