@@ -1,7 +1,5 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
-// import static com.zoritism.wirelesslinks.foundation.gui.AllGuiTextures.PLAYER_INVENTORY; // УДАЛИТЬ
-
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -43,11 +41,14 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		int x = leftPos;
 		int y = topPos;
 
+		// Reset — только очищает ghost-слоты и отправляет пакет, не закрывает интерфейс!
 		resetButton = new IconButton(x + background.getWidth() - 62, y + background.getHeight() - 24, AllIcons.I_TRASH);
 		resetButton.withCallback(() -> {
 			menu.clearContents();
-			menu.sendClearPacket();
+			menu.sendClearPacket(); // Реализуйте этот метод для отправки пакета на сервер!
 		});
+
+		// Confirm — только закрывает интерфейс
 		confirmButton = new IconButton(x + background.getWidth() - 33, y + background.getHeight() - 24, AllIcons.I_CONFIRM);
 		confirmButton.withCallback(() -> {
 			if (minecraft != null && minecraft.player != null)
@@ -62,7 +63,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 
 	@Override
 	protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
-		int invX = getLeftOfCentered(AllGuiTextures.PLAYER_INVENTORY.getWidth());
+		int invX = getLeftOfCentered(PLAYER_INVENTORY.getWidth());
 		int invY = topPos + background.getHeight() + 4;
 		renderPlayerInventory(graphics, invX, invY);
 
@@ -89,8 +90,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 
 	@Override
 	protected void renderTooltip(GuiGraphics graphics, int x, int y) {
-		if (!menu.getCarried()
-				.isEmpty() || this.hoveredSlot == null || hoveredSlot.container == menu.playerInventory) {
+		if (!menu.getCarried().isEmpty() || this.hoveredSlot == null || hoveredSlot.container == menu.playerInventory) {
 			super.renderTooltip(graphics, x, y);
 			return;
 		}

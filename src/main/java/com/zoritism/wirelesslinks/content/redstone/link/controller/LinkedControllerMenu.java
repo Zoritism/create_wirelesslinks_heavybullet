@@ -136,7 +136,12 @@ public class LinkedControllerMenu extends AbstractContainerMenu {
 		LinkedControllerItem.saveFrequencyInventory(contentHolder, ghostInventory);
 	}
 
+	// Реализуйте отправку пакета на сервер — пример для Forge:
 	public void sendClearPacket() {
-		// TODO: Реализовать отправку на сервер (если кнопка Reset на клиенте)
+		// Пример для Forge:
+		// ModPackets.INSTANCE.sendToServer(new ClearLinkedControllerPacket(contentHolder));
+		// Для Fabric или другой системы сетевых пакетов — реализуйте аналогично!
+
+		// Если не реализуете пакет, Reset будет работать только на клиенте!
 	}
 }
