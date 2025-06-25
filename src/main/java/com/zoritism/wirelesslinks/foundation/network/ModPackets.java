@@ -42,7 +42,7 @@ public enum ModPackets {
 
     <T extends SimplePacketBase> ModPackets(Class<T> type, Function<FriendlyByteBuf, T> factory, NetworkDirection direction) {
         this.packetType = new PacketType<>(type, factory, direction);
-        LOGGER.info("[WIRELESSLINKS] ModPackets enum instance created for type: {}", type.getSimpleName());
+        // LOGGER usage REMOVED from here! (was causing illegal reference to static field from initializer)
     }
 
     public static void registerPackets() {
@@ -107,7 +107,7 @@ public enum ModPackets {
             };
             this.type = type;
             this.direction = direction;
-            LOGGER.info("[WIRELESSLINKS] PacketType constructor for {}", type.getSimpleName());
+            // LOGGER usage REMOVED from here! (was causing illegal reference to static field from initializer)
         }
 
         private void register() {
