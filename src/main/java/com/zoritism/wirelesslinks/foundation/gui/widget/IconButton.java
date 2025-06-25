@@ -88,7 +88,7 @@ public class IconButton extends AbstractWidget {
         return active;
     }
 
-    @Override
+
     public boolean isVisible() {
         return visible;
     }
@@ -105,7 +105,7 @@ public class IconButton extends AbstractWidget {
         return toolTip;
     }
 
-    @Override
+
     public void updateWidgetNarration(NarrationElementOutput narration) {
         if (!toolTip.isEmpty()) {
             narration.add(NarratedElementType.TITLE, toolTip.get(0));
