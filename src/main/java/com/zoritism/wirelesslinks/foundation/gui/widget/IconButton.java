@@ -1,42 +1,105 @@
 package com.zoritism.wirelesslinks.foundation.gui.widget;
 
-import com.zoritism.wirelesslinks.foundation.gui.AllIcons;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-public class IconButton extends Button {
-    private final ResourceLocation icon;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
-    // Конструктор
-    public IconButton(int x, int y, AllIcons iconType) {
-        // 20x20 - стандартный размер, пустой текст, ничего не делает по умолчанию
-        super(x, y, 20, 20, Component.empty(), b -> {});
-        this.icon = iconType.location;
+/**
+ * Кнопка с иконкой, максимально повторяющая логику Create, но не зависящая от Create.
+ * Поддерживает кастомизацию цвета (green), смену иконки, тултип, обработку клика.
+ */
+public class IconButton extends AbstractWidget {
+    protected ResourceLocation icon;
+    protected boolean green = false;
+    protected boolean active = true;
+    protected boolean visible = true;
+    protected List<Component> toolTip = new ArrayList<>();
+    protected Consumer<IconButton> onPress = btn -> {};
+
+    public IconButton(int x, int y, ResourceLocation icon) {
+        this(x, y, 18, 18, icon);
+    }
+
+    public IconButton(int x, int y, int width, int height, ResourceLocation icon) {
+        super(x, y, width, height, Component.empty());
+        this.icon = icon;
     }
 
     /**
-     * Позволяет указать действие по нажатию (заменяет onPress).
-     * Пример использования:
-     *   button.withCallback(() -> { ... });
+     * Установить обработчик клика.
      */
     public IconButton withCallback(Runnable callback) {
-        this.onPress = b -> callback.run();
+        this.onPress = btn -> callback.run();
+        return this;
+    }
+
+    /**
+     * Установить обработчик клика с доступом к кнопке.
+     */
+    public IconButton withCallback(Consumer<IconButton> callback) {
+        this.onPress = callback;
         return this;
     }
 
     @Override
-    public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // Сначала нарисуем стандартную кнопку:
-        super.renderWidget(graphics, mouseX, mouseY, partialTick);
+    protected void onClick(double mouseX, double mouseY) {
+        if (isActive() && isVisible()) {
+            onPress.accept(this);
+        }
+    }
 
-        // Потом нарисуем иконку поверх (если есть)
+    @Override
+    public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (!visible) return;
+        // Фон кнопки: простой rect или кастомный ресурс
+        int color = !active ? 0xFFAAAAAA : isHovered() ? 0xFFE0E0E0 : (green ? 0xFF70D080 : 0xFFFFFFFF);
+        graphics.fill(getX(), getY(), getX() + width, getY() + height, color);
+
+        // Иконка по центру
         if (icon != null) {
-            // Рисуем иконку, например, по центру кнопки:
             int iconX = getX() + (width - 16) / 2;
             int iconY = getY() + (height - 16) / 2;
             graphics.blit(icon, iconX, iconY, 0, 0, 16, 16, 16, 16);
         }
+    }
+
+    public void setToolTip(Component text) {
+        toolTip.clear();
+        toolTip.add(text);
+    }
+
+    public void setIcon(ResourceLocation icon) {
+        this.icon = icon;
+    }
+
+    public void setGreen(boolean green) {
+        this.green = green;
+    }
+
+    @Override
+    public boolean isActive() {
+        return active;
+    }
+
+    @Override
+    public boolean isVisible() {
+        return visible;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public void setVisible(boolean visible) {
+        this.visible = visible;
+    }
+
+    public List<Component> getToolTip() {
+        return toolTip;
     }
 }

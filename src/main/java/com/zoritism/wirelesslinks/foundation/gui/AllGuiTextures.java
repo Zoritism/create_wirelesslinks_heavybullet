@@ -1,6 +1,7 @@
 package com.zoritism.wirelesslinks.foundation.gui;
 
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphics;
 
 public enum AllGuiTextures {
     PLAYER_INVENTORY("minecraft", "textures/gui/container/inventory.png", 176, 108),
@@ -18,4 +19,9 @@ public enum AllGuiTextures {
     public ResourceLocation getLocation() { return location; }
     public int getWidth() { return width; }
     public int getHeight() { return height; }
+
+    // Добавь этот метод — и вызов background.render(graphics, x, y) будет работать!
+    public void render(GuiGraphics graphics, int x, int y) {
+        graphics.blit(location, x, y, 0, 0, width, height);
+    }
 }

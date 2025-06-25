@@ -72,16 +72,16 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		graphics.drawString(font, title, x + 15, y + 4, 0x592424, false);
 
 		// Если у вас есть аналог GuiGameElement, раскомментируйте и адаптируйте:
-		// GuiGameElement.of(menu.contentHolder).<GuiGameElement.GuiRenderBuilder>at(x + background.getWidth() - 4, y + background.getHeight() - 56, -200)
+		// GuiGameElement.of(menu.getContentHolder()).<GuiGameElement.GuiRenderBuilder>at(x + background.getWidth() - 4, y + background.getHeight() - 56, -200)
 		//     .scale(5)
 		//     .render(graphics);
 	}
 
 	@Override
 	protected void containerTick() {
-		if (!menu.player.getMainHandItem()
-				.equals(menu.contentHolder, false))
-			menu.player.closeContainer();
+		if (minecraft != null && minecraft.player != null &&
+				!minecraft.player.getMainHandItem().equals(menu.getContentHolder(), false))
+			minecraft.player.closeContainer();
 
 		super.containerTick();
 	}
@@ -104,15 +104,13 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	private List<Component> addToTooltip(List<Component> list, int slot) {
 		if (slot < 0 || slot >= 12)
 			return list;
-		list.add(CreateLang.translateDirect("linked_controller.frequency_slot_" + ((slot % 2) + 1), ControlsUtil.getControls()
-						.get(slot / 2)
-						.getTranslatedKeyMessage()
-						.getString())
-				.withStyle(ChatFormatting.GOLD));
+		String key = ControlsUtil.getControls().get(slot / 2);
+		String keyName = Component.translatable(key).getString();
+		list.add(CreateLang.translateDirect("linked_controller.frequency_slot_" + ((slot % 2) + 1), keyName)
+				.copy().withStyle(ChatFormatting.GOLD));
 		return list;
 	}
 
-	@Override
 	public List<Rect2i> getExtraAreas() {
 		return extraAreas;
 	}
