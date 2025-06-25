@@ -45,7 +45,8 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		resetButton = new IconButton(x + background.getWidth() - 62, y + background.getHeight() - 24, AllIcons.I_TRASH);
 		resetButton.withCallback(() -> {
 			menu.clearContents();
-			menu.sendClearPacket();
+			menu.saveData(menu.contentHolder); // <--- обязательно! сохраняем изменения после очистки
+			menu.sendClearPacket(); // если реализовано — отправить на сервер для sync
 		});
 		confirmButton = new IconButton(x + background.getWidth() - 33, y + background.getHeight() - 24, AllIcons.I_CONFIRM);
 		confirmButton.withCallback(() -> {
@@ -63,6 +64,9 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
 		int invX = getLeftOfCentered(PLAYER_INVENTORY.getWidth());
 		int invY = topPos + background.getHeight() + 4;
+
+		// ОБЯЗАТЕЛЬНО: сначала текстура инвентаря игрока!
+		PLAYER_INVENTORY.render(graphics, invX, invY);
 		renderPlayerInventory(graphics, invX, invY);
 
 		int x = leftPos;
@@ -72,14 +76,13 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		graphics.drawString(font, title, x + 15, y + 4, 0x592424, false);
 
 		// Если реализуете GuiGameElement — раскомментируйте этот блок:
-		// GuiGameElement.of(menu.getContentHolder()).<GuiGameElement.GuiRenderBuilder>at(x + background.getWidth() - 4, y + background.getHeight() - 56, -200)
+		// GuiGameElement.of(menu.contentHolder).<GuiGameElement.GuiRenderBuilder>at(x + background.getWidth() - 4, y + background.getHeight() - 56, -200)
 		//     .scale(5)
 		//     .render(graphics);
 	}
 
 	@Override
 	protected void containerTick() {
-		// Исправлено! Прямой доступ к полю contentHolder, как в оригинале Create
 		if (minecraft != null && minecraft.player != null &&
 				!minecraft.player.getMainHandItem().equals(menu.contentHolder, false))
 			minecraft.player.closeContainer();

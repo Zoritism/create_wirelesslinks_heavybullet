@@ -1,17 +1,17 @@
 package com.zoritism.wirelesslinks.foundation.gui.menu;
 
+import com.zoritism.wirelesslinks.foundation.network.ModPackets;
+
 /**
  * Интерфейс для меню, поддерживающего очистку содержимого и отправку пакета очистки.
  */
 public interface IClearableMenu {
 
     /**
-     * Вызывается при клике на кнопку сброса, отправляет пакет на сервер (реализуй в своём меню при необходимости).
+     * Вызывается при клике на кнопку сброса, отправляет пакет на сервер.
      */
     default void sendClearPacket() {
-        // Для Forge/Fabric реализовать отправку пакета, если нужно.
-        // Например:
-        // ModPackets.INSTANCE.sendToServer(new ClearMenuPacket());
+        ModPackets.getChannel().sendToServer(new ClearMenuPacket());
     }
 
     /**
