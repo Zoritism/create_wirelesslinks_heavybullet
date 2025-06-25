@@ -1,5 +1,7 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
+import static com.zoritism.wirelesslinks.foundation.gui.AllGuiTextures.PLAYER_INVENTORY;
+
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -11,7 +13,6 @@ import com.zoritism.wirelesslinks.foundation.gui.menu.AbstractSimiContainerScree
 import com.zoritism.wirelesslinks.foundation.gui.widget.IconButton;
 import com.zoritism.wirelesslinks.foundation.utility.ControlsUtil;
 import com.zoritism.wirelesslinks.foundation.utility.CreateLang;
-import static com.zoritism.wirelesslinks.foundation.gui.AllGuiTextures.PLAYER_INVENTORY;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -19,6 +20,7 @@ import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
+// Полностью по оригиналу Create, с учетом вашего namespace и импортов.
 public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedControllerMenu> {
 
 	protected AllGuiTextures background;
@@ -41,14 +43,11 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		int x = leftPos;
 		int y = topPos;
 
-		// Reset — очищает ghost-инвентарь и отправляет пакет на сервер, не закрывая интерфейс!
 		resetButton = new IconButton(x + background.getWidth() - 62, y + background.getHeight() - 24, AllIcons.I_TRASH);
 		resetButton.withCallback(() -> {
 			menu.clearContents();
 			menu.sendClearPacket();
 		});
-
-		// Confirm — закрывает интерфейс
 		confirmButton = new IconButton(x + background.getWidth() - 33, y + background.getHeight() - 24, AllIcons.I_CONFIRM);
 		confirmButton.withCallback(() -> {
 			if (minecraft != null && minecraft.player != null)
@@ -65,7 +64,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
 		int invX = getLeftOfCentered(PLAYER_INVENTORY.getWidth());
 		int invY = topPos + background.getHeight() + 4;
-		PLAYER_INVENTORY.render(graphics, invX, invY);
+		renderPlayerInventory(graphics, invX, invY);
 
 		int x = leftPos;
 		int y = topPos;
@@ -73,7 +72,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		background.render(graphics, x, y);
 		graphics.drawString(font, title, x + 15, y + 4, 0x592424, false);
 
-		// Если у вас есть аналог GuiGameElement, раскомментируйте и адаптируйте:
+		// Если реализуете GuiGameElement — раскомментируйте этот блок:
 		// GuiGameElement.of(menu.getContentHolder()).<GuiGameElement.GuiRenderBuilder>at(x + background.getWidth() - 4, y + background.getHeight() - 56, -200)
 		//     .scale(5)
 		//     .render(graphics);
@@ -105,6 +104,9 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	private List<Component> addToTooltip(List<Component> list, int slot) {
 		if (slot < 0 || slot >= 12)
 			return list;
+		// В Create используется getTranslatedKeyMessage().getString(), если ControlsUtil возвращает KeyMapping:
+		// list.add(CreateLang.translateDirect("linked_controller.frequency_slot_" + ((slot % 2) + 1), ControlsUtil.getControls().get(slot / 2).getTranslatedKeyMessage().getString()).withStyle(ChatFormatting.GOLD));
+		// Если у вас getControls().get возвращает строку, используйте ваш способ:
 		String key = ControlsUtil.getControls().get(slot / 2);
 		String keyName = Component.translatable(key).getString();
 		list.add(CreateLang.translateDirect("linked_controller.frequency_slot_" + ((slot % 2) + 1), keyName)
@@ -112,8 +114,8 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		return list;
 	}
 
+	@Override
 	public List<Rect2i> getExtraAreas() {
 		return extraAreas;
 	}
-
 }
