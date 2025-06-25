@@ -14,11 +14,14 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.PacketDistributor.TargetPoint;
 import net.minecraftforge.network.simple.SimpleChannel;
 
-import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * Аналог AllPackets из Create.
+ * Все ваши пакеты должны реализовывать интерфейс ModPackets.SimplePacketBase!
+ */
 public enum ModPackets {
 
     CLEAR_CONTAINER(ClearMenuPacket.class, ClearMenuPacket::new, NetworkDirection.PLAY_TO_SERVER),
@@ -29,10 +32,10 @@ public enum ModPackets {
     public static final String NETWORK_VERSION_STR = String.valueOf(NETWORK_VERSION);
     private static SimpleChannel channel;
 
-    private PacketType<?> packetType;
+    private final PacketType<?> packetType;
 
     <T extends SimplePacketBase> ModPackets(Class<T> type, Function<FriendlyByteBuf, T> factory, NetworkDirection direction) {
-        packetType = new PacketType<>(type, factory, direction);
+        this.packetType = new PacketType<>(type, factory, direction);
     }
 
     public static void registerPackets() {
@@ -57,7 +60,7 @@ public enum ModPackets {
         );
     }
 
-    // --- PacketType аналогично Create ---
+    // ------------------- Аналог PacketType из Create -------------------
     private static class PacketType<T extends SimplePacketBase> {
         private static int index = 0;
 
@@ -89,7 +92,7 @@ public enum ModPackets {
         }
     }
 
-    // --- Интерфейс для пакетов (как SimplePacketBase в Create) ---
+    // ------------------- Интерфейс для всех пакетов -------------------
     public interface SimplePacketBase {
         void write(FriendlyByteBuf buf);
         /**

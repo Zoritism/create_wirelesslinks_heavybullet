@@ -13,8 +13,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
+// --- Добавлено для совместимости с Create (начало) ---
 import java.util.*;
 import java.util.function.Consumer;
+// --- Добавлено для совместимости с Create (конец) ---
 
 public abstract class SmartBlockEntity extends BlockEntity {
 
@@ -25,6 +27,7 @@ public abstract class SmartBlockEntity extends BlockEntity {
 	protected int lazyTickCounter;
 	private boolean chunkUnloaded;
 
+	// Used for simulating this BE in a client-only setting
 	private boolean virtualMode;
 
 	public SmartBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
@@ -37,11 +40,17 @@ public abstract class SmartBlockEntity extends BlockEntity {
 
 	public abstract void addBehaviours(List<BlockEntityBehaviour> behaviours);
 
+	/**
+	 * Gets called just before reading block entity data for behaviours. Register
+	 * anything here that depends on your custom BE data.
+	 */
 	public void addBehavioursDeferred(List<BlockEntityBehaviour> behaviours) {}
 
 	public void initialize() {
 		if (firstNbtRead) {
 			firstNbtRead = false;
+			// Create: MinecraftForge.EVENT_BUS.post(new BlockEntityBehaviourEvent<>(this, behaviours));
+			// Можно добавить ваш евент тут при необходимости
 		}
 		forEachBehaviour(BlockEntityBehaviour::initialize);
 		lazyTick();
@@ -61,48 +70,41 @@ public abstract class SmartBlockEntity extends BlockEntity {
 
 	public void lazyTick() {}
 
+	/**
+	 * Hook only these in future subclasses of STE
+	 */
 	protected void write(CompoundTag tag, boolean clientPacket) {
-		saveAdditional(tag);
+		super.saveAdditional(tag);
 		forEachBehaviour(tb -> tb.write(tag, clientPacket));
 	}
 
 	public void writeSafe(CompoundTag tag) {
-		saveAdditional(tag);
+		super.saveAdditional(tag);
 		forEachBehaviour(tb -> {
 			if (tb.isSafeNBT())
 				tb.writeSafe(tag);
 		});
 	}
 
+	/**
+	 * Hook only these in future subclasses of STE
+	 */
 	protected void read(CompoundTag tag, boolean clientPacket) {
 		if (firstNbtRead) {
 			firstNbtRead = false;
 			ArrayList<BlockEntityBehaviour> list = new ArrayList<>();
 			addBehavioursDeferred(list);
 			list.forEach(b -> behaviours.put(b.getType(), b));
+			// Create: MinecraftForge.EVENT_BUS.post(new BlockEntityBehaviourEvent<>(this, behaviours));
+			// Можно добавить ваш евент тут при необходимости
 		}
-		load(tag);
+		super.load(tag);
 		forEachBehaviour(tb -> tb.read(tag, clientPacket));
 	}
 
 	@Override
 	public final void load(CompoundTag tag) {
-		super.load(tag);
 		read(tag, false);
-	}
-
-	@Override
-	public final void saveAdditional(CompoundTag tag) {
-		write(tag, false);
-	}
-
-	public final void readClient(CompoundTag tag) {
-		read(tag, true);
-	}
-
-	public final CompoundTag writeClient(CompoundTag tag) {
-		write(tag, true);
-		return tag;
 	}
 
 	public void onChunkUnloaded() {
@@ -117,14 +119,37 @@ public abstract class SmartBlockEntity extends BlockEntity {
 		invalidate();
 	}
 
+	/**
+	 * Block destroyed or Chunk unloaded. Usually invalidates capabilities
+	 */
 	public void invalidate() {
 		forEachBehaviour(BlockEntityBehaviour::unload);
 	}
 
+	/**
+	 * Block destroyed or picked up by a contraption. Usually detaches kinetics
+	 */
 	public void remove() {}
 
+	/**
+	 * Block destroyed or replaced. Requires Block to call IBE::onRemove
+	 */
 	public void destroy() {
 		forEachBehaviour(BlockEntityBehaviour::destroy);
+	}
+
+	@Override
+	public final void saveAdditional(CompoundTag tag) {
+		write(tag, false);
+	}
+
+	public final void readClient(CompoundTag tag) {
+		read(tag, true);
+	}
+
+	public final CompoundTag writeClient(CompoundTag tag) {
+		write(tag, true);
+		return tag;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -142,7 +167,8 @@ public abstract class SmartBlockEntity extends BlockEntity {
 
 	public void attachBehaviourLate(BlockEntityBehaviour behaviour) {
 		behaviours.put(behaviour.getType(), behaviour);
-		behaviour.attachTo(this);
+		// Create: behaviour.blockEntity = this;
+		behaviour.attachTo(this); // Используйте attachTo(this) если реализовано, иначе behaviour.blockEntity = this;
 		behaviour.initialize();
 	}
 
@@ -193,5 +219,13 @@ public abstract class SmartBlockEntity extends BlockEntity {
 
 	protected boolean isFluidHandlerCap(Capability<?> cap) {
 		return cap == ForgeCapabilities.FLUID_HANDLER;
+	}
+
+	// --- Добавлено: метод sendData (как в Create) ---
+	public void sendData() {
+		if (level != null && !level.isClientSide) {
+			setChanged();
+			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+		}
 	}
 }
