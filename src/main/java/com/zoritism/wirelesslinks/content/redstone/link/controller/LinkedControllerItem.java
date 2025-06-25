@@ -46,7 +46,6 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext ctx) {
 		Player player = ctx.getPlayer();
 		if (player == null) return InteractionResult.PASS;
-
 		Level level = ctx.getLevel();
 		BlockPos pos = ctx.getClickedPos();
 		BlockState state = level.getBlockState(pos);
@@ -68,7 +67,8 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 			return InteractionResult.SUCCESS;
 		}
 
-		return InteractionResult.PASS;
+		// Ключевой момент: если не по спецблоку, пробуем обычное использование (ПКМ по воздуху)
+		return this.use(level, player, ctx.getHand()).getResult();
 	}
 
 	@Override
