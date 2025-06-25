@@ -13,6 +13,7 @@ import com.zoritism.wirelesslinks.foundation.gui.menu.AbstractSimiContainerScree
 import com.zoritism.wirelesslinks.foundation.gui.widget.IconButton;
 import com.zoritism.wirelesslinks.foundation.utility.ControlsUtil;
 import com.zoritism.wirelesslinks.foundation.utility.CreateLang;
+import static com.zoritism.wirelesslinks.foundation.gui.AllGuiTextures.PLAYER_INVENTORY;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
@@ -35,7 +36,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 
 	@Override
 	protected void init() {
-		setWindowSize(background.getWidth(), background.getHeight() + 4 + AllGuiTextures.PLAYER_INVENTORY.getHeight());
+		setWindowSize(background.getWidth(), background.getHeight() + 4 + PLAYER_INVENTORY.getHeight());
 		setWindowOffset(1, 0);
 		super.init();
 

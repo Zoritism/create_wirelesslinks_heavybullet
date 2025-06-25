@@ -1,48 +1,41 @@
 package com.zoritism.wirelesslinks.foundation.gui.widget;
 
+import com.zoritism.wirelesslinks.foundation.gui.AllIcons;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Кнопка с иконкой, максимально повторяющая логику Create, но не зависящая от Create.
- * Поддерживает кастомизацию цвета (green), смену иконки, тултип, обработку клика.
+ * Кнопка с иконкой как в Create — принимает AllIcons.
  */
 public class IconButton extends AbstractWidget {
-    protected ResourceLocation icon;
+    protected AllIcons icon;
     protected boolean green = false;
     protected boolean active = true;
     protected boolean visible = true;
     protected List<Component> toolTip = new ArrayList<>();
     protected Consumer<IconButton> onPress = btn -> {};
 
-    public IconButton(int x, int y, ResourceLocation icon) {
-        this(x, y, 18, 18, icon);
+    public IconButton(int x, int y, AllIcons icon) {
+        this(x, y, AllIcons.ICON_SIZE + 2, AllIcons.ICON_SIZE + 2, icon);
     }
 
-    public IconButton(int x, int y, int width, int height, ResourceLocation icon) {
+    public IconButton(int x, int y, int width, int height, AllIcons icon) {
         super(x, y, width, height, Component.empty());
         this.icon = icon;
     }
 
-    /**
-     * Установить обработчик клика.
-     */
     public IconButton withCallback(Runnable callback) {
         this.onPress = btn -> callback.run();
         return this;
     }
 
-    /**
-     * Установить обработчик клика с доступом к кнопке.
-     */
     public IconButton withCallback(Consumer<IconButton> callback) {
         this.onPress = callback;
         return this;
@@ -58,15 +51,13 @@ public class IconButton extends AbstractWidget {
     @Override
     public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
-        // Фон кнопки: простой rect или кастомный ресурс
         int color = !active ? 0xFFAAAAAA : isHovered() ? 0xFFE0E0E0 : (green ? 0xFF70D080 : 0xFFFFFFFF);
         graphics.fill(getX(), getY(), getX() + width, getY() + height, color);
 
-        // Иконка по центру
         if (icon != null) {
-            int iconX = getX() + (width - 16) / 2;
-            int iconY = getY() + (height - 16) / 2;
-            graphics.blit(icon, iconX, iconY, 0, 0, 16, 16, 16, 16);
+            int iconX = getX() + (width - AllIcons.ICON_SIZE) / 2;
+            int iconY = getY() + (height - AllIcons.ICON_SIZE) / 2;
+            icon.render(graphics, iconX, iconY);
         }
     }
 
@@ -75,7 +66,7 @@ public class IconButton extends AbstractWidget {
         toolTip.add(text);
     }
 
-    public void setIcon(ResourceLocation icon) {
+    public void setIcon(AllIcons icon) {
         this.icon = icon;
     }
 
@@ -87,7 +78,6 @@ public class IconButton extends AbstractWidget {
     public boolean isActive() {
         return active;
     }
-
 
     public boolean isVisible() {
         return visible;
@@ -104,7 +94,6 @@ public class IconButton extends AbstractWidget {
     public List<Component> getToolTip() {
         return toolTip;
     }
-
 
     public void updateWidgetNarration(NarrationElementOutput narration) {
         if (!toolTip.isEmpty()) {
