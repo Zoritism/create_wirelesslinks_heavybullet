@@ -3,6 +3,7 @@ package com.zoritism.wirelesslinks.content.redstone.link.controller;
 import com.zoritism.wirelesslinks.content.redstone.link.IRedstoneLinkable;
 import com.zoritism.wirelesslinks.content.redstone.link.LinkHandler;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.Frequency;
+import com.zoritism.wirelesslinks.content.redstone.link.WirelessLinkNetworkHandler;
 import com.zoritism.wirelesslinks.util.Couple;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
@@ -37,6 +38,7 @@ public class LinkedControllerServerHandler {
 				if (!manual.isAlive()) {
 					LOGGER.info("[LinkedControllerServerHandler][tick] Removing expired ManualFrequencyEntry: pos={}, key={}", manual.getLocation(), manual.getNetworkKey());
 					LinkHandler.get(level).removeLink(manual);
+					WirelessLinkNetworkHandler.removeFromNetwork(level, manual);
 					entryIt.remove();
 				}
 			}
@@ -76,10 +78,12 @@ public class LinkedControllerServerHandler {
 						entry.setTimeout(0);
 						LOGGER.info("[LinkedControllerServerHandler][receivePressed] Frequency disabled: setTimeout(0) for key={}", key);
 						LinkHandler.get(level).removeLink(entry);
+						WirelessLinkNetworkHandler.removeFromNetwork(level, entry);
 					} else {
 						entry.updatePosition(pos);
 						LOGGER.info("[LinkedControllerServerHandler][receivePressed] Frequency refreshed: updatePosition({}) for key={}", pos, key);
 						LinkHandler.get(level).updateLink(entry);
+						WirelessLinkNetworkHandler.addToNetwork(level, entry);
 					}
 					continue nextKey;
 				}
@@ -94,6 +98,7 @@ public class LinkedControllerServerHandler {
 			ManualFrequencyEntry newEntry = new ManualFrequencyEntry(pos, key);
 			list.add(newEntry);
 			LinkHandler.get(level).updateLink(newEntry);
+			WirelessLinkNetworkHandler.addToNetwork(level, newEntry);
 			LOGGER.info("[LinkedControllerServerHandler][receivePressed] Added new ManualFrequencyEntry: pos={}, key={}, player={}", pos, key, playerId);
 		}
 		// Если pressed==false и какая-то частота не была найдена, ничего не делаем (она и так выключена)
