@@ -14,8 +14,8 @@ public class DefaultControls {
                 mc.options.keyLeft,   // A
                 mc.options.keyDown,   // S
                 mc.options.keyRight,  // D
-                mc.options.keyShift,  // Shift (Ctrl)
-                mc.options.keyJump    // Jump (Space)
+                mc.options.keyJump,   // Space
+                mc.options.keyShift   // Shift
         ));
     }
 }
