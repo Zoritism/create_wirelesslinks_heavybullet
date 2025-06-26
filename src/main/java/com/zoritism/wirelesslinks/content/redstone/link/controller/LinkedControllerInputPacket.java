@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.*;
@@ -105,18 +106,24 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
             return;
         }
 
-        List<FrequencyPair> pairs = activatedButtons.stream()
-                .map(i -> LinkedControllerItem.slotToFrequency(heldItem, i))
-                .collect(Collectors.toList());
+        // ВАЖНО! Используем оригинальные ItemStack из инвентаря контроллера
+        ItemStackHandler inv = LinkedControllerItem.getFrequencyInventory(heldItem);
+        List<Couple<ItemStack>> frequencies = new ArrayList<>();
+        for (int i : activatedButtons) {
+            int aIdx = i * 2;
+            int bIdx = aIdx + 1;
+            ItemStack a = inv.getStackInSlot(aIdx);
+            ItemStack b = inv.getStackInSlot(bIdx);
+            if (!a.isEmpty() || !b.isEmpty()) {
+                frequencies.add(Couple.of(a, b));
+            }
+        }
 
-        LOGGER.info("[PACKET] handleItem: world={}, pos={}, uuid={}, pairs={}, press={}", world, pos, uniqueID, pairs, press);
+        LOGGER.info("[PACKET] handleItem: world={}, pos={}, uuid={}, frequencies={}, press={}", world, pos, uniqueID, frequencies, press);
 
-        // Передаем именно List<Couple<ItemStack>>!
         LinkedControllerServerHandler.receivePressed(
                 world, pos, uniqueID,
-                pairs.stream()
-                        .map(fp -> Couple.of(fp.getFirst().getStack(), fp.getSecond().getStack()))
-                        .collect(Collectors.toList()),
+                frequencies,
                 press
         );
     }

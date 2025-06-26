@@ -165,15 +165,19 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		// ВАЖНО: тут должен использоваться настоящий контроллер игрока
 		// (этот метод как пример, в реальной логике используйте контроллер из инвентаря игрока)
 		ItemStack controller = new ItemStack(ModItems.LINKED_CONTROLLER.get());
-		FrequencyPair pair = slotToFrequency(controller, slotLogical);
+		ItemStackHandler inv = getFrequencyInventory(controller);
+		int aIdx = slotLogical * 2;
+		int bIdx = aIdx + 1;
+		ItemStack a = inv.getStackInSlot(aIdx);
+		ItemStack b = inv.getStackInSlot(bIdx);
 
-		if (pair.getFirst().getStack().isEmpty() && pair.getSecond().getStack().isEmpty())
+		if (a.isEmpty() && b.isEmpty())
 			return;
 
-		Couple<ItemStack> couple = Couple.of(pair.getFirst().getStack(), pair.getSecond().getStack());
+		Couple<ItemStack> couple = Couple.of(a, b);
 
-		LOGGER.info("[transmitPressedKeys] level={}, playerId={}, slotLogical={}, pressed={}, heldPos={}, frequencyPair={}, couple={}",
-				level, playerId, slotLogical, pressed, heldPos, pair, couple);
+		LOGGER.info("[transmitPressedKeys] level={}, playerId={}, slotLogical={}, pressed={}, heldPos={}, couple={}",
+				level, playerId, slotLogical, pressed, heldPos, couple);
 
 		LinkedControllerServerHandler.receivePressed(
 				level, heldPos, playerId,
