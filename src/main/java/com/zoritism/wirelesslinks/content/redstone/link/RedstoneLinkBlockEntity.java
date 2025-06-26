@@ -14,13 +14,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-// LOGGING
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLinkable {
-
-	private static final Logger LOGGER = LogManager.getLogger();
 
 	private boolean receivedSignalChanged;
 	private int receivedSignal;
@@ -47,7 +41,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		if (nowTx != transmitter) {
 			transmitter = nowTx;
 			updateLink();
-			return; // повторная передача произойдет из updateLink
+			return;
 		}
 
 		if (transmitter)
@@ -62,11 +56,6 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 
 		if (receivedSignalChanged)
 			propagateNeighbourUpdates(state);
-
-		// ЛОГИРОВАНИЕ: состояние приёмника и его частоты
-		LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={}, isListening={}, freqA={}, freqB={}, receivedSignal={}",
-				worldPosition, isListening(),
-				frequencyInv.getItem(0), frequencyInv.getItem(1), receivedSignal);
 	}
 
 	private boolean isTransmitterBlock() {
@@ -82,11 +71,6 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 
 		setChanged();
 		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-
-		// ЛОГИРОВАНИЕ: обновление линка
-		LOGGER.info("[RedstoneLinkBlockEntity][updateLink] pos={}, isListening={}, freqA={}, freqB={}",
-				worldPosition, isListening(),
-				frequencyInv.getItem(0), frequencyInv.getItem(1));
 	}
 
 	private void propagateNeighbourUpdates(BlockState state) {
@@ -175,19 +159,13 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 	@Override public BlockPos getLocation()             { return worldPosition; }
 	@Override public Level getLevel()                   { return level; }
 	@Override public int getTransmittedStrength()       { return transmittedSignal; }
-	@Override public void setReceivedStrength(int power){
-		LOGGER.info("[RedstoneLinkBlockEntity][setReceivedStrength] pos={}, isListening={}, freqA={}, freqB={}, setPower={}",
-				worldPosition, isListening(),
-				frequencyInv.getItem(0), frequencyInv.getItem(1), power);
-		receivedSignal = power;
-	}
+	@Override public void setReceivedStrength(int power){ receivedSignal = power; }
 	@Override public boolean isListening()              { return !transmitter; }
 
 	@Override
 	public Couple<ItemStack> getFrequency() {
 		Couple<ItemStack> freq = Couple.of(normalize(frequencyInv.getItem(0)),
 				normalize(frequencyInv.getItem(1)));
-		LOGGER.info("[RedstoneLinkBlockEntity][getFrequency] pos={}, freqA={}, freqB={}", worldPosition, freq.getFirst(), freq.getSecond());
 		return freq;
 	}
 
