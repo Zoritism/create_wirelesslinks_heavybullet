@@ -103,55 +103,17 @@ public class LinkedControllerClientHandler {
 		if (event.getKey() == GLFW.GLFW_KEY_F5) {
 			if (event.getAction() == GLFW.GLFW_PRESS) {
 				f5Pressed = true;
+				sendTestPacket(true); // <-- ОТПРАВЛЯЕМ powered:true СРАЗУ при нажатии!
 			} else if (event.getAction() == GLFW.GLFW_RELEASE) {
 				f5Pressed = false;
-				// При отпускании F5 также отправь "отпущено" для всех частот
 				sendTestPacket(false);
 			}
 		}
 	}
 
-	/**
-	 * Теперь слать пакет нужно каждый тик, пока f5Pressed=true
-	 */
+	// tick теперь не нужен для sticky-сигнала, но можно оставить если нужно
 	public static void tick() {
-		Minecraft mc = Minecraft.getInstance();
-		LocalPlayer player = mc.player;
-
-		if (MODE == Mode.IDLE)
-			return;
-		if (packetCooldown > 0)
-			packetCooldown--;
-
-		if (player == null || player.isSpectator()) {
-			MODE = Mode.IDLE;
-			onReset();
-			LOGGER.info("[Client] tick: Player is null or spectator, switched to IDLE and reset");
-			return;
-		}
-
-		ItemStack heldItem = player.getMainHandItem();
-		if (!inLectern() && !heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-			heldItem = player.getOffhandItem();
-			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-				MODE = Mode.IDLE;
-				onReset();
-				LOGGER.info("[Client] tick: No linked controller in hand, switched to IDLE and reset");
-				return;
-			}
-		}
-
-		if (mc.screen != null || InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_ESCAPE)) {
-			MODE = Mode.IDLE;
-			onReset();
-			LOGGER.info("[Client] tick: Some screen opened or ESC pressed, switched to IDLE and reset");
-			return;
-		}
-
-		if (f5Pressed && packetCooldown == 0) {
-			sendTestPacket(true);
-			packetCooldown = PACKET_RATE;
-		}
+		// Можно оставить пустым, если не требуется удержание
 	}
 
 	/**
@@ -181,7 +143,6 @@ public class LinkedControllerClientHandler {
 					}
 				}
 				if (!frequencyCouples.isEmpty()) {
-					// Используем сетевой пакет вместо прямого вызова сервера!
 					ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
 							makeButtonIndices(frequencyCouples), powered
 					));
@@ -197,7 +158,6 @@ public class LinkedControllerClientHandler {
 		}
 	}
 
-	// Вспомогательная функция для передачи индексов активных кнопок/слотов (0..5)
 	private static List<Integer> makeButtonIndices(List<Couple<ItemStack>> couples) {
 		List<Integer> indices = new ArrayList<>();
 		for (int i = 0; i < couples.size(); i++) {

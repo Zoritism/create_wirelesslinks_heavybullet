@@ -48,7 +48,8 @@ public class LinkedControllerMenu extends GhostItemMenu<ItemStack> {
 		int slot = 0;
 
 		for (int column = 0; column < 6; column++) {
-			for (int row = 0; row < 2; ++row)
+			// Меняем местами порядок слотов в каждом столбце!
+			for (int row = 1; row >= 0; --row)
 				addSlot(new SlotItemHandler(ghostInventory, slot++, x, y + row * 18));
 			x += 24;
 			if (column == 3)
