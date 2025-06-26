@@ -37,23 +37,29 @@ public class Couple<T> {
         if (!(obj instanceof Couple<?> other))
             return false;
 
-        // Если элементы — ItemStack, сравниваем без учёта NBT
+        // Если элементы — ItemStack, сравниваем как Frequency: isSameItemSameTags + count
         if (first instanceof ItemStack f1 && second instanceof ItemStack s1
                 && other.first instanceof ItemStack f2 && other.second instanceof ItemStack s2) {
-            return itemStackEqualsIgnoreNBT(f1, f2) && itemStackEqualsIgnoreNBT(s1, s2);
+            // Считаем все пустые стеки одинаковыми частотами
+            boolean leftEmpty = f1.isEmpty() && f2.isEmpty();
+            boolean rightEmpty = s1.isEmpty() && s2.isEmpty();
+            if (leftEmpty && rightEmpty)
+                return true;
+
+            return ItemStack.isSameItemSameTags(f1, f2) && f1.getCount() == f2.getCount()
+                    && ItemStack.isSameItemSameTags(s1, s2) && s1.getCount() == s2.getCount();
         }
 
         return Objects.equals(first, other.first) && Objects.equals(second, other.second);
     }
 
-    private boolean itemStackEqualsIgnoreNBT(ItemStack a, ItemStack b) {
-        return a.getItem() == b.getItem() && a.getCount() == b.getCount();
-    }
-
     @Override
     public int hashCode() {
         if (first instanceof ItemStack f && second instanceof ItemStack s) {
-            return Objects.hash(f.getItem(), f.getCount(), s.getItem(), s.getCount());
+            // Совместимо с Frequency.hashCode
+            int left = f.isEmpty() ? 0 : Objects.hash(f.getItem(), f.getTag(), f.getCount());
+            int right = s.isEmpty() ? 0 : Objects.hash(s.getItem(), s.getTag(), s.getCount());
+            return Objects.hash(left, right);
         }
         return Objects.hash(first, second);
     }
