@@ -23,6 +23,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.gui.overlay.ForgeGui;
 import net.minecraftforge.client.gui.overlay.IGuiOverlay;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.items.ItemStackHandler;
@@ -43,16 +44,7 @@ public class LinkedControllerClientHandler {
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
 	private static boolean f5Pressed = false;
-
-	// Основные control-ключи для управления контроллером, соответствуют каналам 0..5
-	private static final int[] CONTROL_KEYS = {
-			GLFW.GLFW_KEY_W,    // 0
-			GLFW.GLFW_KEY_A,    // 1
-			GLFW.GLFW_KEY_S,    // 2
-			GLFW.GLFW_KEY_D,    // 3
-			GLFW.GLFW_KEY_LEFT_SHIFT, // 4 (Shift)
-			GLFW.GLFW_KEY_SPACE // 5 (Space)
-	};
+	private static ItemStack lastHeldController = ItemStack.EMPTY; // Для детектирования смены предмета в руке
 
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
@@ -67,6 +59,11 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void toggle() {
+		// Активировать можно только если контроллер в руке!
+		if (!isHeldController()) {
+			LOGGER.info("[Client] toggle: Not held, cannot activate");
+			return;
+		}
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = null;
@@ -100,9 +97,9 @@ public class LinkedControllerClientHandler {
 
 	protected static void onReset() {
 		Vector<KeyMapping> controls = DefaultControls.getControls();
-		for (int i = 0; i < CONTROL_KEYS.length; i++) {
+		for (KeyMapping mapping : controls) {
 			try {
-				controls.get(i).setDown(false);
+				mapping.setDown(false);
 			} catch (Exception ignored) {}
 		}
 		packetCooldown = 0;
@@ -125,12 +122,14 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		if (MODE == Mode.ACTIVE) {
-			for (int i = 0; i < CONTROL_KEYS.length; i++) {
-				if (event.getKey() == CONTROL_KEYS[i]) {
-					Vector<KeyMapping> controls = DefaultControls.getControls();
+		// Управление контроллером только если он в руке и активен!
+		if (MODE == Mode.ACTIVE && isHeldController()) {
+			Vector<KeyMapping> controls = DefaultControls.getControls();
+			for (int i = 0; i < controls.size(); i++) {
+				KeyMapping mapping = controls.get(i);
+				if (mapping.matches(event.getKey(), event.getScanCode())) {
 					try {
-						controls.get(i).setDown(false); // блокируем движение!
+						mapping.setDown(false); // блокируем движение!
 					} catch (Exception ignored) {}
 
 					if (event.getAction() == GLFW.GLFW_PRESS) {
@@ -146,6 +145,39 @@ public class LinkedControllerClientHandler {
 				}
 			}
 		}
+	}
+
+	@SubscribeEvent
+	public static void onClientTick(TickEvent.ClientTickEvent event) {
+		// Проверяем каждый тик, не убрали ли контроллер из руки или не сменили предмет
+		if (event.phase != TickEvent.Phase.END) return;
+		Minecraft mc = Minecraft.getInstance();
+		LocalPlayer player = mc.player;
+		if (player == null) {
+			if (MODE != Mode.IDLE) {
+				MODE = Mode.IDLE;
+				onReset();
+			}
+			return;
+		}
+		ItemStack held = player.getMainHandItem();
+		boolean isController = held.is(ModItems.LINKED_CONTROLLER.get());
+		// Если мы были активны и предмет в руке сменился/убрали контроллер — сбрасываем режим
+		if (MODE == Mode.ACTIVE && !isController) {
+			MODE = Mode.IDLE;
+			onReset();
+			LOGGER.info("[Client] Lost controller in hand or changed item, switched to IDLE mode and reset");
+		}
+		lastHeldController = isController ? held : ItemStack.EMPTY;
+		// Остальной тик-логика
+		tick();
+	}
+
+	private static boolean isHeldController() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null) return false;
+		ItemStack held = mc.player.getMainHandItem();
+		return held.is(ModItems.LINKED_CONTROLLER.get());
 	}
 
 	private static void sendControlChannelPacket(int channel, boolean pressed) {
@@ -168,7 +200,7 @@ public class LinkedControllerClientHandler {
 					ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
 							List.of(channel), pressed
 					));
-					LOGGER.info("[Client] [CTRL] Channel {} key {}: Sent powered:{} for ({}, {})", channel, CONTROL_KEYS[channel], pressed, a, b);
+					LOGGER.info("[Client] [CTRL] Channel {}: Sent powered:{} for ({}, {})", channel, pressed, a, b);
 				}
 			} else {
 				LOGGER.info("[Client] [CTRL] No linked controller in hand.");
@@ -177,10 +209,10 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void tick() {
+		// F5 работает только если контроллер в руке и активен
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
-
-		if (MODE == Mode.IDLE)
+		if (MODE != Mode.ACTIVE || !isHeldController())
 			return;
 		if (packetCooldown > 0)
 			packetCooldown--;
@@ -193,14 +225,11 @@ public class LinkedControllerClientHandler {
 		}
 
 		ItemStack heldItem = player.getMainHandItem();
-		if (!inLectern() && !heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-			heldItem = player.getOffhandItem();
-			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-				MODE = Mode.IDLE;
-				onReset();
-				LOGGER.info("[Client] tick: No linked controller in hand, switched to IDLE and reset");
-				return;
-			}
+		if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+			MODE = Mode.IDLE;
+			onReset();
+			LOGGER.info("[Client] tick: No linked controller in hand, switched to IDLE and reset");
+			return;
 		}
 
 		if (mc.screen != null || InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_ESCAPE)) {
