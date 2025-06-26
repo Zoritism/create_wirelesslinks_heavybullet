@@ -14,6 +14,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+/**
+ * Обновлённая версия: RedstoneLinkBlockEntity теперь работает только через LinkHandler,
+ * чтобы обеспечить единую сетевую логику и совместимость с LinkedController.
+ */
 public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLinkable {
 
 	private boolean receivedSignalChanged;
