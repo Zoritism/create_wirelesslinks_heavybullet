@@ -37,6 +37,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 	@Override
 	public void onLoad() {
 		LOGGER.info("[RedstoneLinkBlockEntity][onLoad] pos={}, isClient={}", worldPosition, level != null ? level.isClientSide : "null");
+		updateLink();
 	}
 
 	public void tick() {
@@ -46,18 +47,13 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		boolean prevTransmitter = transmitter;
 		transmitter = isTransmitterBlock();
 
-		WirelessLinkNetworkHandler.removeFromNetwork(level, this);
-		WirelessLinkNetworkHandler.addToNetwork(level, this);
-
-		LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={}, transmitter={}, receivedSignal={}", worldPosition, transmitter, receivedSignal);
-
 		if (prevTransmitter != transmitter) {
 			LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={} transmitter state changed to {}, updating link", worldPosition, transmitter);
 			updateLink();
 			return;
 		}
 
-		// ВАЖНО: теперь transmitter реально передает сигнал
+		// ВАЖНО: transmitter реально передает сигнал
 		if (transmitter) {
 			boolean powered = level.hasNeighborSignal(worldPosition);
 			int newSignal = powered ? 15 : 0;
@@ -66,18 +62,6 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			}
 			return;
 		}
-
-		boolean powered = receivedSignal > 0;
-		BlockState state = getBlockState();
-		if (state.getValue(RedstoneLinkBlock.POWERED) != powered) {
-			receivedSignalChanged = true;
-			LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={} changing blockstate POWERED to {}", worldPosition, powered);
-			level.setBlockAndUpdate(worldPosition, state.setValue(RedstoneLinkBlock.POWERED, powered));
-		}
-
-		if (receivedSignalChanged)
-			propagateNeighbourUpdates(state);
-	}
 
 		boolean powered = receivedSignal > 0;
 		BlockState state = getBlockState();
@@ -101,11 +85,19 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		if (level == null || level.isClientSide)
 			return;
 
-		Couple<ItemStack> freq = getFrequency();
-		LOGGER.info("[RedstoneLinkBlockEntity][updateLink] pos={} freq={} transmitter={}", worldPosition, freq, transmitter);
+		Couple<Frequency> newKey = getNetworkKey();
+		if (lastNetworkKey != null && !lastNetworkKey.equals(newKey)) {
+			LOGGER.info("[RedstoneLinkBlockEntity][updateLink] pos={} removing from old key={}", worldPosition, lastNetworkKey);
+			WirelessLinkNetworkHandler.removeFromNetwork(level, this);
+		}
+		lastNetworkKey = newKey;
+
+		LOGGER.info("[RedstoneLinkBlockEntity][updateLink] pos={} freq={} transmitter={}", worldPosition, getFrequency(), transmitter);
+
+		WirelessLinkNetworkHandler.addToNetwork(level, this);
 
 		LinkHandler.get(level).updateLink(this);
-		LinkHandler.get(level).refreshChannel(freq);
+		LinkHandler.get(level).refreshChannel(getFrequency());
 
 		setChanged();
 		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
@@ -137,9 +129,9 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		super.setRemoved();
 		LOGGER.info("[RedstoneLinkBlockEntity][setRemoved] pos={}", worldPosition);
 		if (level != null && !level.isClientSide) {
+			WirelessLinkNetworkHandler.removeFromNetwork(level, this);
 			LinkHandler.get(level).removeLink(this);
 			LinkHandler.get(level).refreshChannel(getFrequency());
-			WirelessLinkNetworkHandler.removeFromNetwork(level, this);
 		}
 	}
 
@@ -169,6 +161,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			frequencyInv.setItem(i, ItemStack.of(tag.getCompound("Freq" + i)));
 
 		LOGGER.info("[RedstoneLinkBlockEntity][load] pos={} transmitter={} receivedSignal={} transmittedSignal={}", worldPosition, transmitter, receivedSignal, transmittedSignal);
+		updateLink(); // гарантирует корректную регистрацию после загрузки
 	}
 
 	@Override
@@ -190,6 +183,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			frequencyInv.setItem(i, ItemStack.of(tag.getCompound("Freq" + i)));
 		}
 		LOGGER.info("[RedstoneLinkBlockEntity][handleUpdateTag] pos={}", worldPosition);
+		updateLink(); // гарантирует корректную регистрацию после client sync
 	}
 
 	@Override
