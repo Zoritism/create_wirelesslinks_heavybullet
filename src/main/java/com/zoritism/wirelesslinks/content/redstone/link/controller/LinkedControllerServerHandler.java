@@ -113,54 +113,54 @@ public class LinkedControllerServerHandler {
 		public ManualFrequencyEntry(BlockPos pos, Couple<Frequency> key) {
 			this.pos = pos;
 			this.key = key;
-			LOGGER.info("[ManualFrequencyEntry] Created: pos={}, key={}, timeout={}", pos, key, timeout);
+			LOGGER.info("[ManualFrequencyEntry][create] pos={}, key={}, timeout={}", pos, key, timeout);
 		}
 
 		public void updatePosition(BlockPos pos) {
 			this.pos = pos;
 			this.timeout = TIMEOUT;
-			LOGGER.info("[ManualFrequencyEntry] updatePosition: pos={}, key={}, timeout reset to {}", pos, key, TIMEOUT);
+			LOGGER.info("[ManualFrequencyEntry][updatePosition] pos={}, key={}, timeout reset to {}", pos, key, TIMEOUT);
 		}
 
 		public void decrement() {
 			if (timeout > 0)
 				timeout--;
-			LOGGER.info("[ManualFrequencyEntry] decrement: pos={}, key={}, timeout={}", pos, key, timeout);
+			LOGGER.info("[ManualFrequencyEntry][decrement] pos={}, key={}, timeout={}", pos, key, timeout);
 		}
 
 		public void setTimeout(int value) {
 			this.timeout = value;
-			LOGGER.info("[ManualFrequencyEntry] setTimeout: pos={}, key={}, timeout={}", pos, key, value);
+			LOGGER.info("[ManualFrequencyEntry][setTimeout] pos={}, key={}, timeout={}", pos, key, value);
 		}
 
 		@Override
 		public boolean isAlive() {
 			boolean alive = timeout > 0;
-			LOGGER.info("[ManualFrequencyEntry] isAlive: pos={}, key={}, timeout={}, alive={}", pos, key, timeout, alive);
+			LOGGER.info("[ManualFrequencyEntry][isAlive] pos={}, key={}, timeout={}, alive={}", pos, key, timeout, alive);
 			return alive;
 		}
 
 		@Override
 		public int getTransmittedStrength() {
 			int strength = isAlive() ? 15 : 0;
-			LOGGER.info("[ManualFrequencyEntry] getTransmittedStrength: pos={}, key={}, strength={}", pos, key, strength);
+			LOGGER.info("[ManualFrequencyEntry][getTransmittedStrength] pos={}, key={}, strength={}", pos, key, strength);
 			return strength;
 		}
 
 		@Override
 		public void setReceivedStrength(int power) {
-			LOGGER.info("[ManualFrequencyEntry] setReceivedStrength: pos={}, key={}, receivedPower={}", pos, key, power);
+			LOGGER.info("[ManualFrequencyEntry][setReceivedStrength] pos={}, key={}, receivedPower={}", pos, key, power);
 		}
 
 		@Override
 		public boolean isListening() {
-			LOGGER.info("[ManualFrequencyEntry] isListening: pos={}, key={}, returns false (always transmitter)", pos, key);
+			LOGGER.info("[ManualFrequencyEntry][isListening] pos={}, key={}, returns false (always transmitter)", pos, key);
 			return false;
 		}
 
 		@Override
 		public Couple<Frequency> getNetworkKey() {
-			LOGGER.info("[ManualFrequencyEntry] getNetworkKey: pos={}, key={}", pos, key);
+			LOGGER.info("[ManualFrequencyEntry][getNetworkKey] pos={}, key={}", pos, key);
 			return key;
 		}
 
@@ -169,7 +169,7 @@ public class LinkedControllerServerHandler {
 			// Нормализуем ItemStack как в RedstoneLinkBlockEntity
 			ItemStack a = key.getFirst() == null ? ItemStack.EMPTY : normalize(key.getFirst().getStack());
 			ItemStack b = key.getSecond() == null ? ItemStack.EMPTY : normalize(key.getSecond().getStack());
-			LOGGER.info("[ManualFrequencyEntry] getFrequency: pos={}, key={}, freqA={}, freqB={}", pos, key, a, b);
+			LOGGER.info("[ManualFrequencyEntry][getFrequency] pos={}, key={}, freqA={}, freqB={}", pos, key, a, b);
 			return Couple.of(a, b);
 		}
 
@@ -183,13 +183,13 @@ public class LinkedControllerServerHandler {
 
 		@Override
 		public BlockPos getLocation() {
-			LOGGER.info("[ManualFrequencyEntry] getLocation: pos={}, key={}", pos, key);
+			LOGGER.info("[ManualFrequencyEntry][getLocation] pos={}, key={}", pos, key);
 			return pos;
 		}
 
 		@Override
 		public Level getLevel() {
-			LOGGER.info("[ManualFrequencyEntry] getLevel: pos={}, key={}", pos, key);
+			LOGGER.info("[ManualFrequencyEntry][getLevel] pos={}, key={}", pos, key);
 			return null; // Не используется в текущей реализации
 		}
 	}

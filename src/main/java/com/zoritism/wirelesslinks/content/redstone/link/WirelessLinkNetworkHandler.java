@@ -32,7 +32,8 @@ public class WirelessLinkNetworkHandler {
             return;
         }
 
-        LOGGER.info("[WLNH] addToNetwork: level={}, linkLoc={}, key={}", level.dimension().location(), link.getLocation(), link.getNetworkKey());
+        LOGGER.info("[WLNH] addToNetwork: level={}, linkClass={}, linkLoc={}, key={}, isListening={}, isAlive={}",
+                level.dimension().location(), link.getClass().getSimpleName(), link.getLocation(), link.getNetworkKey(), link.isListening(), link.isAlive());
 
         NETWORKS
                 .computeIfAbsent(level, l -> new HashMap<>())
@@ -40,6 +41,15 @@ public class WirelessLinkNetworkHandler {
                 .add(link);
 
         LOGGER.info("[WLNH] addToNetwork: Added to network. Current network size for key {}: {}", link.getNetworkKey(), NETWORKS.get(level).get(link.getNetworkKey()).size());
+
+        // Логируем текущее содержимое сети для ключа
+        List<IRedstoneLinkable> currentList = NETWORKS.get(level).get(link.getNetworkKey());
+        if (currentList != null) {
+            for (IRedstoneLinkable l : currentList) {
+                LOGGER.info("[WLNH] [NetworkContent] key={} linkClass={} loc={} isListening={} isAlive={}",
+                        link.getNetworkKey(), l.getClass().getSimpleName(), l.getLocation(), l.isListening(), l.isAlive());
+            }
+        }
 
         updateNetwork(level, link.getNetworkKey());
     }
@@ -50,7 +60,7 @@ public class WirelessLinkNetworkHandler {
             return;
         }
 
-        LOGGER.info("[WLNH] removeFromNetwork: level={}, linkLoc={}, key={}", level.dimension().location(), link.getLocation(), link.getNetworkKey());
+        LOGGER.info("[WLNH] removeFromNetwork: level={}, linkClass={}, linkLoc={}, key={}", level.dimension().location(), link.getClass().getSimpleName(), link.getLocation(), link.getNetworkKey());
 
         Map<Couple<Frequency>, List<IRedstoneLinkable>> networks = NETWORKS.get(level);
         if (networks == null) {
@@ -64,9 +74,19 @@ public class WirelessLinkNetworkHandler {
             return;
         }
 
+        int before = list.size();
         list.removeIf(l -> l == null || l.getLocation() == null || l.getLocation().equals(link.getLocation()));
+        int after = list.size();
 
-        LOGGER.info("[WLNH] removeFromNetwork: After removal, size for key {}: {}", link.getNetworkKey(), list.size());
+        LOGGER.info("[WLNH] removeFromNetwork: After removal, size for key {}: {} (removed {})", link.getNetworkKey(), after, before - after);
+
+        // Логируем оставшихся участников сети
+        if (after > 0) {
+            for (IRedstoneLinkable l : list) {
+                LOGGER.info("[WLNH] [NetworkContent] key={} linkClass={} loc={} isListening={} isAlive={}",
+                        link.getNetworkKey(), l.getClass().getSimpleName(), l.getLocation(), l.isListening(), l.isAlive());
+            }
+        }
 
         if (list.isEmpty()) {
             networks.remove(link.getNetworkKey());
@@ -101,6 +121,12 @@ public class WirelessLinkNetworkHandler {
         int maxPower = 0;
         int transmitters = 0;
         int receivers = 0;
+
+        // Логируем всю сеть по ключу
+        for (IRedstoneLinkable link : list) {
+            LOGGER.info("[WLNH] [UpdateNetwork] key={} linkClass={} loc={} isListening={} isAlive={} transmittedStrength={}",
+                    key, link.getClass().getSimpleName(), link.getLocation(), link.isListening(), link.isAlive(), link.getTransmittedStrength());
+        }
 
         try {
             // Сначала найдём максимум от всех передатчиков

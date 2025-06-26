@@ -27,6 +27,9 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 
 	private final SimpleContainer frequencyInv = new SimpleContainer(2);
 
+	// Для хранения частоты, чтобы отписаться при смене
+	private Couple<Frequency> lastNetworkKey = null;
+
 	public RedstoneLinkBlockEntity(BlockPos pos, BlockState state) {
 		super(ModBlockEntities.REDSTONE_LINK.get(), pos, state);
 	}
@@ -34,8 +37,10 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 	@Override
 	public void onLoad() {
 		LOGGER.info("[RedstoneLinkBlockEntity][onLoad] pos={}, isClient={}", worldPosition, level != null ? level.isClientSide : "null");
-		if (level != null && !level.isClientSide)
+		if (level != null && !level.isClientSide) {
 			updateLink();
+			registerToNetwork();
+		}
 	}
 
 	public void tick() {
@@ -49,6 +54,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			transmitter = nowTx;
 			LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={} transmitter state changed to {}, updating link", worldPosition, transmitter);
 			updateLink();
+			registerToNetwork();
 			return; // повторная передача произойдет из updateLink
 		}
 
@@ -83,6 +89,8 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		LinkHandler.get(level).updateLink(this);
 		LinkHandler.get(level).refreshChannel(freq);
 
+		registerToNetwork();
+
 		setChanged();
 		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
 	}
@@ -104,6 +112,8 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		if (transmittedSignal != strength) {
 			transmittedSignal = strength;
 			LinkHandler.get(level).refreshChannel(getFrequency());
+			// обновить сеть
+			WirelessLinkNetworkHandler.updateNetwork(level, getNetworkKey());
 		}
 	}
 
@@ -114,6 +124,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		if (level != null && !level.isClientSide) {
 			LinkHandler.get(level).removeLink(this);
 			LinkHandler.get(level).refreshChannel(getFrequency());
+			unregisterFromNetwork();
 		}
 	}
 
@@ -144,8 +155,10 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 
 		LOGGER.info("[RedstoneLinkBlockEntity][load] pos={} transmitter={} receivedSignal={} transmittedSignal={}", worldPosition, transmitter, receivedSignal, transmittedSignal);
 
-		if (level != null && !level.isClientSide)
+		if (level != null && !level.isClientSide) {
 			updateLink();
+			registerToNetwork();
+		}
 	}
 
 	@Override
@@ -266,5 +279,25 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 	public SimpleContainer getFrequencyInventory() {
 		LOGGER.info("[RedstoneLinkBlockEntity][getFrequencyInventory] pos={}", worldPosition);
 		return frequencyInv;
+	}
+
+	/** Регистрация в WirelessLinkNetworkHandler */
+	private void registerToNetwork() {
+		if (level == null || level.isClientSide)
+			return;
+		Couple<Frequency> currentKey = getNetworkKey();
+		if (lastNetworkKey != null && !lastNetworkKey.equals(currentKey)) {
+			WirelessLinkNetworkHandler.removeFromNetwork(level, this);
+		}
+		WirelessLinkNetworkHandler.addToNetwork(level, this);
+		lastNetworkKey = currentKey;
+	}
+
+	/** Удаление из WirelessLinkNetworkHandler */
+	private void unregisterFromNetwork() {
+		if (level == null || level.isClientSide)
+			return;
+		WirelessLinkNetworkHandler.removeFromNetwork(level, this);
+		lastNetworkKey = null;
 	}
 }
