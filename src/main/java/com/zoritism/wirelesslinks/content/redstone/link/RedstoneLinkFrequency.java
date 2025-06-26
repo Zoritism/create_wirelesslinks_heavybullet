@@ -13,7 +13,7 @@ public class RedstoneLinkFrequency {
 
         private Frequency(ItemStack stack) {
             this.stack = stack.copy();
-            this.stack.setCount(1); // нормализуем стек
+            // УБРАНО: this.stack.setCount(1); // не нормализуем стек, количество теперь важно!
         }
 
         public static Frequency of(ItemStack stack) {
@@ -49,14 +49,15 @@ public class RedstoneLinkFrequency {
             if (stack.isEmpty() && other.stack.isEmpty())
                 return true;
 
-            return ItemStack.isSameItemSameTags(stack, other.stack);
+            // СРАВНЕНИЕ: теперь учитываем тип, количество и NBT
+            return ItemStack.isSameItemSameTags(stack, other.stack) && stack.getCount() == other.stack.getCount();
         }
 
         @Override
         public int hashCode() {
             if (stack.isEmpty())
                 return 0;
-            return Objects.hash(stack.getItem(), stack.getTag());
+            return Objects.hash(stack.getItem(), stack.getTag(), stack.getCount());
         }
 
         @Override

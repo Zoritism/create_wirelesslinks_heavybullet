@@ -6,7 +6,6 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.zoritism.wirelesslinks.registry.ModItems;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
 import com.zoritism.wirelesslinks.util.Couple;
 
@@ -20,11 +19,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.client.gui.overlay.ForgeGui;
 import net.minecraftforge.client.gui.overlay.IGuiOverlay;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.common.Mod;
 
 import org.apache.logging.log4j.LogManager;
@@ -98,7 +97,7 @@ public class LinkedControllerClientHandler {
 	}
 
 	/**
-	 * Обработка нажатия F5 для тестовой отправки пакета.
+	 * Обработка нажатия F5: отправить powered:true по всем реально заданным частотам контроллера
 	 */
 	@SubscribeEvent
 	public static void onKeyInput(InputEvent.Key event) {
@@ -108,7 +107,7 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void sendTestPacket() {
-		LOGGER.info("[Client] F5 pressed! Sending test packet...");
+		LOGGER.info("[Client] F5 pressed! Sending powered:true for all channels in linked controller...");
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
 		if (player != null) {
@@ -117,31 +116,32 @@ public class LinkedControllerClientHandler {
 				heldItem = player.getOffhandItem();
 			}
 			if (heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-				int slotCount = 12;
+				int slotCount = 12; // 6 пар частот
+				List<Couple<com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.Frequency>> frequencyCouples = new ArrayList<>();
 				for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
 					FrequencyPair pair = LinkedControllerItem.slotToFrequency(heldItem, logicalSlot);
-					LOGGER.info("[Client] [F5-Test] LogicalSlot {}: A={}, B={}", logicalSlot, pair.getFirst().getStack(), pair.getSecond().getStack());
-					if (!pair.getFirst().getStack().isEmpty() || !pair.getSecond().getStack().isEmpty()) {
-						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
-						LOGGER.info("[Client] [F5-Test] Sending ACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
-						LinkedControllerServerHandler.receivePressed(
-								player.level(), player.blockPosition(), player.getUUID(),
-								Collections.singletonList(couple), true
-						);
-					} else {
-						Couple<RedstoneLinkFrequency.Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
-						LOGGER.info("[Client] [F5-Test] Sending INACTIVE signal: {}, playerPos={}, playerUUID={}", couple, player.blockPosition(), player.getUUID());
-						LinkedControllerServerHandler.receivePressed(
-								player.level(), player.blockPosition(), player.getUUID(),
-								Collections.singletonList(couple), false
-						);
+					// Только если хотя бы один из слотов не пустой
+					ItemStack a = pair.getFirst().getStack();
+					ItemStack b = pair.getSecond().getStack();
+					if (!a.isEmpty() || !b.isEmpty()) {
+						frequencyCouples.add(Couple.of(pair.getFirst(), pair.getSecond()));
+						LOGGER.info("[Client] [F5] LogicalSlot {}: A={}, B={}", logicalSlot, a, b);
 					}
 				}
+				if (!frequencyCouples.isEmpty()) {
+					LinkedControllerServerHandler.receivePressed(
+							player.level(), player.blockPosition(), player.getUUID(),
+							frequencyCouples, true // powered:true
+					);
+					LOGGER.info("[Client] [F5] Sent powered:true for {} channels", frequencyCouples.size());
+				} else {
+					LOGGER.info("[Client] [F5] No frequencies set in controller, nothing sent.");
+				}
 			} else {
-				LOGGER.info("[Client] [F5-Test] No linked controller in hand.");
+				LOGGER.info("[Client] [F5] No linked controller in hand.");
 			}
 		} else {
-			LOGGER.info("[Client] [F5-Test] No player instance.");
+			LOGGER.info("[Client] [F5] No player instance.");
 		}
 	}
 
