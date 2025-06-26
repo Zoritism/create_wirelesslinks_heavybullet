@@ -13,12 +13,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-/**
- * Обновлённая версия: RedstoneLinkBlockEntity теперь работает только через LinkHandler,
- * чтобы обеспечить единую сетевую логику и совместимость с LinkedController.
- */
 public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLinkable {
+
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	private boolean receivedSignalChanged;
 	private int receivedSignal;
@@ -33,6 +33,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 
 	@Override
 	public void onLoad() {
+		LOGGER.info("[RedstoneLinkBlockEntity][onLoad] pos={}, isClient={}", worldPosition, level != null ? level.isClientSide : "null");
 		if (level != null && !level.isClientSide)
 			updateLink();
 	}
@@ -41,9 +42,12 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		if (level == null || level.isClientSide)
 			return;
 
+		LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={}, transmitter={}, receivedSignal={}", worldPosition, transmitter, receivedSignal);
+
 		boolean nowTx = isTransmitterBlock();
 		if (nowTx != transmitter) {
 			transmitter = nowTx;
+			LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={} transmitter state changed to {}, updating link", worldPosition, transmitter);
 			updateLink();
 			return; // повторная передача произойдет из updateLink
 		}
@@ -55,6 +59,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		BlockState state = getBlockState();
 		if (state.getValue(RedstoneLinkBlock.POWERED) != powered) {
 			receivedSignalChanged = true;
+			LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={} changing blockstate POWERED to {}", worldPosition, powered);
 			level.setBlockAndUpdate(worldPosition, state.setValue(RedstoneLinkBlock.POWERED, powered));
 		}
 
@@ -63,15 +68,20 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 	}
 
 	private boolean isTransmitterBlock() {
-		return !getBlockState().getValue(RedstoneLinkBlock.RECEIVER);
+		boolean result = !getBlockState().getValue(RedstoneLinkBlock.RECEIVER);
+		LOGGER.info("[RedstoneLinkBlockEntity][isTransmitterBlock] pos={} isTransmitter={}", worldPosition, result);
+		return result;
 	}
 
 	public void updateLink() {
 		if (level == null || level.isClientSide)
 			return;
 
+		Couple<ItemStack> freq = getFrequency();
+		LOGGER.info("[RedstoneLinkBlockEntity][updateLink] pos={} freq={} transmitter={}", worldPosition, freq, transmitter);
+
 		LinkHandler.get(level).updateLink(this);
-		LinkHandler.get(level).refreshChannel(getFrequency());
+		LinkHandler.get(level).refreshChannel(freq);
 
 		setChanged();
 		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
@@ -82,11 +92,14 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		level.blockUpdated(worldPosition, state.getBlock());
 		level.blockUpdated(back, level.getBlockState(back).getBlock());
 		receivedSignalChanged = false;
+		LOGGER.info("[RedstoneLinkBlockEntity][propagateNeighbourUpdates] pos={} blockUpdated for pos={} and back={}", worldPosition, worldPosition, back);
 	}
 
 	public void transmit(int strength) {
 		if (!transmitter || level == null)
 			return;
+
+		LOGGER.info("[RedstoneLinkBlockEntity][transmit] pos={} transmitter={}, oldSignal={}, newSignal={}", worldPosition, transmitter, transmittedSignal, strength);
 
 		if (transmittedSignal != strength) {
 			transmittedSignal = strength;
@@ -97,6 +110,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 	@Override
 	public void setRemoved() {
 		super.setRemoved();
+		LOGGER.info("[RedstoneLinkBlockEntity][setRemoved] pos={}", worldPosition);
 		if (level != null && !level.isClientSide) {
 			LinkHandler.get(level).removeLink(this);
 			LinkHandler.get(level).refreshChannel(getFrequency());
@@ -115,6 +129,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			frequencyInv.getItem(i).save(stackTag);
 			tag.put("Freq" + i, stackTag);
 		}
+		LOGGER.info("[RedstoneLinkBlockEntity][saveAdditional] pos={} transmitter={} receivedSignal={} transmittedSignal={}", worldPosition, transmitter, receivedSignal, transmittedSignal);
 	}
 
 	@Override
@@ -126,6 +141,8 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 
 		for (int i = 0; i < 2; i++)
 			frequencyInv.setItem(i, ItemStack.of(tag.getCompound("Freq" + i)));
+
+		LOGGER.info("[RedstoneLinkBlockEntity][load] pos={} transmitter={} receivedSignal={} transmittedSignal={}", worldPosition, transmitter, receivedSignal, transmittedSignal);
 
 		if (level != null && !level.isClientSide)
 			updateLink();
@@ -139,6 +156,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			frequencyInv.getItem(i).save(stackTag);
 			tag.put("Freq" + i, stackTag);
 		}
+		LOGGER.info("[RedstoneLinkBlockEntity][getUpdateTag] pos={}", worldPosition);
 		return tag;
 	}
 
@@ -148,28 +166,45 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		for (int i = 0; i < 2; i++) {
 			frequencyInv.setItem(i, ItemStack.of(tag.getCompound("Freq" + i)));
 		}
+		LOGGER.info("[RedstoneLinkBlockEntity][handleUpdateTag] pos={}", worldPosition);
 	}
 
 	@Override
 	public ClientboundBlockEntityDataPacket getUpdatePacket() {
+		LOGGER.info("[RedstoneLinkBlockEntity][getUpdatePacket] pos={}", worldPosition);
 		return ClientboundBlockEntityDataPacket.create(this);
 	}
 
 	@Override
 	public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
+		LOGGER.info("[RedstoneLinkBlockEntity][onDataPacket] pos={}", worldPosition);
 		handleUpdateTag(pkt.getTag());
 	}
 
-	@Override public BlockPos getLocation()             { return worldPosition; }
-	@Override public Level getLevel()                   { return level; }
-	@Override public int getTransmittedStrength()       { return transmittedSignal; }
-	@Override public void setReceivedStrength(int power){ receivedSignal = power; }
-	@Override public boolean isListening()              { return !transmitter; }
+	@Override
+	public BlockPos getLocation() { return worldPosition; }
+
+	@Override
+	public Level getLevel() { return level; }
+
+	@Override
+	public int getTransmittedStrength() { return transmittedSignal; }
+
+	@Override
+	public void setReceivedStrength(int power) {
+		LOGGER.info("[RedstoneLinkBlockEntity][setReceivedStrength] pos={} oldReceivedSignal={} newReceivedSignal={}", worldPosition, receivedSignal, power);
+		receivedSignal = power;
+	}
+
+	@Override
+	public boolean isListening() { return !transmitter; }
 
 	@Override
 	public Couple<ItemStack> getFrequency() {
-		return Couple.of(normalize(frequencyInv.getItem(0)),
+		Couple<ItemStack> freq = Couple.of(normalize(frequencyInv.getItem(0)),
 				normalize(frequencyInv.getItem(1)));
+		LOGGER.info("[RedstoneLinkBlockEntity][getFrequency] pos={} freq={}", worldPosition, freq);
+		return freq;
 	}
 
 	@Override
@@ -193,6 +228,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			return;
 
 		boolean powered = getBlockState().getValue(RedstoneLinkBlock.POWERED);
+		LOGGER.info("[RedstoneLinkBlockEntity][transmitFromNeighborChange] pos={} powered={}", worldPosition, powered);
 		transmit(powered ? 15 : 0);
 	}
 
@@ -200,26 +236,35 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		if (level == null || transmitter)
 			return;
 
+		LOGGER.info("[RedstoneLinkBlockEntity][updateNetworkState] pos={}", worldPosition);
 		tick();
 	}
 
 	public ItemStack getLeftFrequencyStack() {
-		return frequencyInv.getItem(0);
+		ItemStack stack = frequencyInv.getItem(0);
+		LOGGER.info("[RedstoneLinkBlockEntity][getLeftFrequencyStack] pos={} stack={}", worldPosition, stack);
+		return stack;
 	}
 
 	public ItemStack getRightFrequencyStack() {
-		return frequencyInv.getItem(1);
+		ItemStack stack = frequencyInv.getItem(1);
+		LOGGER.info("[RedstoneLinkBlockEntity][getRightFrequencyStack] pos={} stack={}", worldPosition, stack);
+		return stack;
 	}
 
 	public Direction getHorizontalFacing() {
 		BlockState state = getBlockState();
 		if (state.hasProperty(RedstoneLinkBlock.HORIZONTAL_FACING)) {
-			return state.getValue(RedstoneLinkBlock.HORIZONTAL_FACING);
+			Direction dir = state.getValue(RedstoneLinkBlock.HORIZONTAL_FACING);
+			LOGGER.info("[RedstoneLinkBlockEntity][getHorizontalFacing] pos={} dir={}", worldPosition, dir);
+			return dir;
 		}
+		LOGGER.info("[RedstoneLinkBlockEntity][getHorizontalFacing] pos={} dir=NORTH (default)", worldPosition);
 		return Direction.NORTH;
 	}
 
 	public SimpleContainer getFrequencyInventory() {
+		LOGGER.info("[RedstoneLinkBlockEntity][getFrequencyInventory] pos={}", worldPosition);
 		return frequencyInv;
 	}
 }
