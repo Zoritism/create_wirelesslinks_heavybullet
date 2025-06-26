@@ -10,6 +10,10 @@ import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.*;
 
+// LOGGING
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * Менеджер сетей Redstone Link с поддержкой частот.
  */
@@ -19,6 +23,8 @@ public class LinkHandler extends SavedData {
 
 	private final Map<Couple<ItemStack>, Set<IRedstoneLinkable>> transmittersByFrequency = new HashMap<>();
 	private final Map<Couple<ItemStack>, Set<IRedstoneLinkable>> receiversByFrequency = new HashMap<>();
+
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	public static LinkHandler get(Level level) {
 		if (level.isClientSide)
@@ -45,8 +51,10 @@ public class LinkHandler extends SavedData {
 
 		if (link.isListening()) {
 			receiversByFrequency.computeIfAbsent(newFrequency, $ -> new HashSet<>()).add(link);
+			LOGGER.info("[LinkHandler][updateLink] Registered receiver: {} at {} for frequency {}", link.getClass().getSimpleName(), link.getLocation(), newFrequency);
 		} else {
 			transmittersByFrequency.computeIfAbsent(newFrequency, $ -> new HashSet<>()).add(link);
+			LOGGER.info("[LinkHandler][updateLink] Registered transmitter: {} at {} for frequency {}", link.getClass().getSimpleName(), link.getLocation(), newFrequency);
 		}
 
 		refreshChannel(oldFrequency);
@@ -64,10 +72,16 @@ public class LinkHandler extends SavedData {
 
 		if (link.isListening()) {
 			Set<IRedstoneLinkable> set = receiversByFrequency.get(frequency);
-			if (set != null) set.remove(link);
+			if (set != null) {
+				set.remove(link);
+				LOGGER.info("[LinkHandler][removeLink] Removed receiver: {} at {} for frequency {}", link.getClass().getSimpleName(), link.getLocation(), frequency);
+			}
 		} else {
 			Set<IRedstoneLinkable> set = transmittersByFrequency.get(frequency);
-			if (set != null) set.remove(link);
+			if (set != null) {
+				set.remove(link);
+				LOGGER.info("[LinkHandler][removeLink] Removed transmitter: {} at {} for frequency {}", link.getClass().getSimpleName(), link.getLocation(), frequency);
+			}
 		}
 
 		refreshChannel(frequency);
@@ -81,23 +95,34 @@ public class LinkHandler extends SavedData {
 		Set<IRedstoneLinkable> transmitters = transmittersByFrequency.getOrDefault(frequency, Set.of());
 		Set<IRedstoneLinkable> receivers = receiversByFrequency.getOrDefault(frequency, Set.of());
 
+		LOGGER.info("[LinkHandler][refreshChannel] frequency={}", frequency);
+		LOGGER.info("  transmitters count: {}", transmitters.size());
+		for (IRedstoneLinkable tx : transmitters) {
+			LOGGER.info("    [TX] {} at {} strength={}", tx.getClass().getSimpleName(), tx.getLocation(), tx.getTransmittedStrength());
+		}
+		LOGGER.info("  receivers count: {}", receivers.size());
+		for (IRedstoneLinkable rx : receivers) {
+			LOGGER.info("    [RX] {} at {} freq={} (equals? {})",
+					rx.getClass().getSimpleName(), rx.getLocation(), rx.getFrequency(), rx.getFrequency().equals(frequency));
+		}
+
 		int maxPower = 0;
 		for (IRedstoneLinkable tx : transmitters) {
 			maxPower = Math.max(maxPower, tx.getTransmittedStrength());
 		}
 
 		for (IRedstoneLinkable rx : receivers) {
-			if (!rx.getFrequency().equals(frequency))
+			if (!rx.getFrequency().equals(frequency)) {
+				LOGGER.info("    [RX] {} at {} freq mismatch: rx={}, expected={}", rx.getClass().getSimpleName(), rx.getLocation(), rx.getFrequency(), frequency);
 				continue;
-
+			}
+			LOGGER.info("    [RX] {} at {} setReceivedStrength({})", rx.getClass().getSimpleName(), rx.getLocation(), maxPower);
 			rx.setReceivedStrength(maxPower);
 			if (rx instanceof RedstoneLinkBlockEntity be) {
 				be.tick();
 			}
 		}
 	}
-
-
 
 	@Override
 	public CompoundTag save(CompoundTag tag) {
