@@ -170,7 +170,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		if (pair.getFirst().getStack().isEmpty() && pair.getSecond().getStack().isEmpty())
 			return;
 
-		Couple<Frequency> couple = Couple.of(pair.getFirst(), pair.getSecond());
+		Couple<ItemStack> couple = Couple.of(pair.getFirst().getStack(), pair.getSecond().getStack());
 
 		LOGGER.info("[transmitPressedKeys] level={}, playerId={}, slotLogical={}, pressed={}, heldPos={}, frequencyPair={}, couple={}",
 				level, playerId, slotLogical, pressed, heldPos, pair, couple);

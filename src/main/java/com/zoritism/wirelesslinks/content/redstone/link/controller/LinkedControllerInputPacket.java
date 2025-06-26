@@ -3,6 +3,7 @@ package com.zoritism.wirelesslinks.content.redstone.link.controller;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
 import com.zoritism.wirelesslinks.foundation.network.ModPackets;
 import com.zoritism.wirelesslinks.registry.ModItems;
+import com.zoritism.wirelesslinks.util.Couple;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
@@ -110,9 +111,12 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
 
         LOGGER.info("[PACKET] handleItem: world={}, pos={}, uuid={}, pairs={}, press={}", world, pos, uniqueID, pairs, press);
 
+        // Передаем именно List<Couple<ItemStack>>!
         LinkedControllerServerHandler.receivePressed(
                 world, pos, uniqueID,
-                pairs.stream().map(FrequencyPair::toCouple).collect(Collectors.toList()),
+                pairs.stream()
+                        .map(fp -> Couple.of(fp.getFirst().getStack(), fp.getSecond().getStack()))
+                        .collect(Collectors.toList()),
                 press
         );
     }

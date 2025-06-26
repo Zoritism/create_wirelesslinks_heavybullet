@@ -55,10 +55,9 @@ public class LinkedControllerServerHandler {
 	 * - Если pressed=true, поддерживает или добавляет ManualFrequencyEntry для каждой частоты
 	 * - Если pressed=false, выключает соответствующую частоту для игрока
 	 *
-	 * Важно: если на клиенте отправляются все частоты каждый тик с pressed=true,
-	 * то сигнал по всем частотам будет всегда активен.
+	 * frequencies - список пар ItemStack (A,B), а не Frequency
 	 */
-	public static void receivePressed(Level level, BlockPos pos, UUID playerId, List<Couple<Frequency>> frequencies, boolean pressed) {
+	public static void receivePressed(Level level, BlockPos pos, UUID playerId, List<Couple<ItemStack>> frequencies, boolean pressed) {
 		LOGGER.info("[LinkedControllerServerHandler][receivePressed] pos={}, playerId={}, frequencies={}, pressed={}", pos, playerId, frequencies, pressed);
 
 		Map<UUID, Collection<ManualFrequencyEntry>> worldMap =
@@ -66,13 +65,12 @@ public class LinkedControllerServerHandler {
 		Collection<ManualFrequencyEntry> list =
 				worldMap.computeIfAbsent(playerId, id -> new ArrayList<>());
 
-		// Обрабатываем каждую частоту отдельно
 		nextKey:
-		for (Couple<Frequency> key : frequencies) {
+		for (Couple<ItemStack> key : frequencies) {
 			LOGGER.info("[LinkedControllerServerHandler][receivePressed] Processing key: {}", key);
 			for (ManualFrequencyEntry entry : list) {
-				LOGGER.info("[LinkedControllerServerHandler][receivePressed] Comparing with existing entry: key={}, pressed={}, entryKey={}", key, pressed, entry.getNetworkKey());
-				if (entry.getNetworkKey().equals(key)) {
+				LOGGER.info("[LinkedControllerServerHandler][receivePressed] Comparing with existing entry: key={}, pressed={}, entryKey={}", key, pressed, entry.getFrequency());
+				if (entry.getFrequency().equals(key)) {
 					LOGGER.info("[LinkedControllerServerHandler][receivePressed] Existing frequency entry found for player={}, key={}, pressed={}", playerId, key, pressed);
 					if (!pressed) {
 						entry.setTimeout(0);
@@ -101,76 +99,73 @@ public class LinkedControllerServerHandler {
 			WirelessLinkNetworkHandler.addToNetwork(level, newEntry);
 			LOGGER.info("[LinkedControllerServerHandler][receivePressed] Added new ManualFrequencyEntry: pos={}, key={}, player={}", pos, key, playerId);
 		}
-		// Если pressed==false и какая-то частота не была найдена, ничего не делаем (она и так выключена)
 	}
 
 	public static class ManualFrequencyEntry implements IRedstoneLinkable {
 
 		private int timeout = TIMEOUT;
 		private BlockPos pos;
-		private final Couple<Frequency> key;
+		private final Couple<ItemStack> frequencyKey;
 
-		public ManualFrequencyEntry(BlockPos pos, Couple<Frequency> key) {
+		public ManualFrequencyEntry(BlockPos pos, Couple<ItemStack> frequencyKey) {
 			this.pos = pos;
-			this.key = key;
-			LOGGER.info("[ManualFrequencyEntry][create] pos={}, key={}, timeout={}", pos, key, timeout);
+			this.frequencyKey = Couple.of(normalize(frequencyKey.getFirst()), normalize(frequencyKey.getSecond()));
+			LOGGER.info("[ManualFrequencyEntry][create] pos={}, key={}, timeout={}", pos, frequencyKey, timeout);
 		}
 
 		public void updatePosition(BlockPos pos) {
 			this.pos = pos;
 			this.timeout = TIMEOUT;
-			LOGGER.info("[ManualFrequencyEntry][updatePosition] pos={}, key={}, timeout reset to {}", pos, key, TIMEOUT);
+			LOGGER.info("[ManualFrequencyEntry][updatePosition] pos={}, key={}, timeout reset to {}", pos, frequencyKey, TIMEOUT);
 		}
 
 		public void decrement() {
 			if (timeout > 0)
 				timeout--;
-			LOGGER.info("[ManualFrequencyEntry][decrement] pos={}, key={}, timeout={}", pos, key, timeout);
+			LOGGER.info("[ManualFrequencyEntry][decrement] pos={}, key={}, timeout={}", pos, frequencyKey, timeout);
 		}
 
 		public void setTimeout(int value) {
 			this.timeout = value;
-			LOGGER.info("[ManualFrequencyEntry][setTimeout] pos={}, key={}, timeout={}", pos, key, value);
+			LOGGER.info("[ManualFrequencyEntry][setTimeout] pos={}, key={}, timeout={}", pos, frequencyKey, value);
 		}
 
 		@Override
 		public boolean isAlive() {
 			boolean alive = timeout > 0;
-			LOGGER.info("[ManualFrequencyEntry][isAlive] pos={}, key={}, timeout={}, alive={}", pos, key, timeout, alive);
+			LOGGER.info("[ManualFrequencyEntry][isAlive] pos={}, key={}, timeout={}, alive={}", pos, frequencyKey, timeout, alive);
 			return alive;
 		}
 
 		@Override
 		public int getTransmittedStrength() {
 			int strength = isAlive() ? 15 : 0;
-			LOGGER.info("[ManualFrequencyEntry][getTransmittedStrength] pos={}, key={}, strength={}", pos, key, strength);
+			LOGGER.info("[ManualFrequencyEntry][getTransmittedStrength] pos={}, key={}, strength={}", pos, frequencyKey, strength);
 			return strength;
 		}
 
 		@Override
 		public void setReceivedStrength(int power) {
-			LOGGER.info("[ManualFrequencyEntry][setReceivedStrength] pos={}, key={}, receivedPower={}", pos, key, power);
+			LOGGER.info("[ManualFrequencyEntry][setReceivedStrength] pos={}, key={}, receivedPower={}", pos, frequencyKey, power);
 		}
 
 		@Override
 		public boolean isListening() {
-			LOGGER.info("[ManualFrequencyEntry][isListening] pos={}, key={}, returns false (always transmitter)", pos, key);
+			LOGGER.info("[ManualFrequencyEntry][isListening] pos={}, key={}, returns false (always transmitter)", pos, frequencyKey);
 			return false;
 		}
 
 		@Override
 		public Couple<Frequency> getNetworkKey() {
-			LOGGER.info("[ManualFrequencyEntry][getNetworkKey] pos={}, key={}", pos, key);
-			return key;
+			// Для совместимости с WirelessLinkNetworkHandler, возвращаем пустую "виртуальную" частоту
+			LOGGER.info("[ManualFrequencyEntry][getNetworkKey] pos={}, key={}", pos, frequencyKey);
+			return Couple.of(Frequency.of(frequencyKey.getFirst()), Frequency.of(frequencyKey.getSecond()));
 		}
 
 		@Override
 		public Couple<ItemStack> getFrequency() {
-			// Нормализуем ItemStack как в RedstoneLinkBlockEntity
-			ItemStack a = key.getFirst() == null ? ItemStack.EMPTY : normalize(key.getFirst().getStack());
-			ItemStack b = key.getSecond() == null ? ItemStack.EMPTY : normalize(key.getSecond().getStack());
-			LOGGER.info("[ManualFrequencyEntry][getFrequency] pos={}, key={}, freqA={}, freqB={}", pos, key, a, b);
-			return Couple.of(a, b);
+			LOGGER.info("[ManualFrequencyEntry][getFrequency] pos={}, key={}", pos, frequencyKey);
+			return frequencyKey;
 		}
 
 		private static ItemStack normalize(ItemStack in) {
@@ -183,13 +178,13 @@ public class LinkedControllerServerHandler {
 
 		@Override
 		public BlockPos getLocation() {
-			LOGGER.info("[ManualFrequencyEntry][getLocation] pos={}, key={}", pos, key);
+			LOGGER.info("[ManualFrequencyEntry][getLocation] pos={}, key={}", pos, frequencyKey);
 			return pos;
 		}
 
 		@Override
 		public Level getLevel() {
-			LOGGER.info("[ManualFrequencyEntry][getLevel] pos={}, key={}", pos, key);
+			LOGGER.info("[ManualFrequencyEntry][getLevel] pos={}, key={}", pos, frequencyKey);
 			return null; // Не используется в текущей реализации
 		}
 	}

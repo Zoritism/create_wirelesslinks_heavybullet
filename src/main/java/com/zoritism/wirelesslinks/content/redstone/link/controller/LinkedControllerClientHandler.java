@@ -117,14 +117,13 @@ public class LinkedControllerClientHandler {
 			}
 			if (heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
 				int slotCount = 12; // 6 пар частот
-				List<Couple<com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.Frequency>> frequencyCouples = new ArrayList<>();
+				List<Couple<ItemStack>> frequencyCouples = new ArrayList<>();
 				for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
 					FrequencyPair pair = LinkedControllerItem.slotToFrequency(heldItem, logicalSlot);
-					// Только если хотя бы один из слотов не пустой
 					ItemStack a = pair.getFirst().getStack();
 					ItemStack b = pair.getSecond().getStack();
 					if (!a.isEmpty() || !b.isEmpty()) {
-						frequencyCouples.add(Couple.of(pair.getFirst(), pair.getSecond()));
+						frequencyCouples.add(Couple.of(a, b));
 						LOGGER.info("[Client] [F5] LogicalSlot {}: A={}, B={}", logicalSlot, a, b);
 					}
 				}
