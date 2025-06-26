@@ -121,10 +121,9 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
 
         LOGGER.info("[PACKET] handleItem: world={}, pos={}, uuid={}, frequencies={}, press={}", world, pos, uniqueID, frequencies, press);
 
-        LinkedControllerServerHandler.receivePressed(
-                world, pos, uniqueID,
-                frequencies,
-                press
+        // Новый sticky-сигнал: сразу выставляем powered всем receiver по этим частотам
+        LinkedControllerServerHandler.setReceiversPowered(
+                world, frequencies, press
         );
     }
 

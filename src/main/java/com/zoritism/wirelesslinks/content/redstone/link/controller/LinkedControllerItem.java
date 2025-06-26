@@ -162,8 +162,6 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	 * @param heldPos позиция (обычно player.blockPosition() или lectern)
 	 */
 	public static void transmitPressedKeys(Level level, UUID playerId, int slotLogical, boolean pressed, BlockPos heldPos) {
-		// ВАЖНО: тут должен использоваться настоящий контроллер игрока
-		// (этот метод как пример, в реальной логике используйте контроллер из инвентаря игрока)
 		ItemStack controller = new ItemStack(ModItems.LINKED_CONTROLLER.get());
 		ItemStackHandler inv = getFrequencyInventory(controller);
 		int aIdx = slotLogical * 2;
@@ -179,9 +177,9 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		LOGGER.info("[transmitPressedKeys] level={}, playerId={}, slotLogical={}, pressed={}, heldPos={}, couple={}",
 				level, playerId, slotLogical, pressed, heldPos, couple);
 
-		LinkedControllerServerHandler.receivePressed(
-				level, heldPos, playerId,
-				List.of(couple), pressed
+		// Sticky: сразу выставляем powered всем receiver по этой частоте
+		LinkedControllerServerHandler.setReceiversPowered(
+				level, List.of(couple), pressed
 		);
 	}
 }
