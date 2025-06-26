@@ -96,6 +96,12 @@ public class LinkedControllerClientHandler {
 	}
 
 	protected static void onReset() {
+		// Для всех каналов, которые были нажаты, отправляем "release"
+		for (int i : currentlyPressed) {
+			sendControlChannelPacket(i, false); // отправить отпускание кнопки всем каналам
+		}
+		currentlyPressed.clear();
+
 		Vector<KeyMapping> controls = DefaultControls.getControls();
 		for (KeyMapping mapping : controls) {
 			try {
@@ -105,7 +111,6 @@ public class LinkedControllerClientHandler {
 		packetCooldown = 0;
 		selectedLocation = BlockPos.ZERO;
 		lecternPos = null;
-		currentlyPressed.clear();
 		f5Pressed = false;
 		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared)");
 	}
