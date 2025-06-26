@@ -59,8 +59,14 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			return; // повторная передача произойдет из updateLink
 		}
 
-		if (transmitter)
+		if (transmitter) {
+			boolean powered = level.hasNeighborSignal(worldPosition);
+			int newSignal = powered ? 15 : 0;
+			if (transmittedSignal != newSignal) {
+				transmit(newSignal);
+			}
 			return;
+		}
 
 		boolean powered = receivedSignal > 0;
 		BlockState state = getBlockState();
