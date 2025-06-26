@@ -1,7 +1,5 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
-import com.zoritism.wirelesslinks.foundation.network.ModPackets;
 import com.zoritism.wirelesslinks.registry.ModItems;
 import com.zoritism.wirelesslinks.util.Couple;
 import net.minecraft.core.BlockPos;
@@ -9,18 +7,17 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 // LOGGING
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class LinkedControllerInputPacket extends LinkedControllerPacketBase implements ModPackets.SimplePacketBase {
+public class LinkedControllerInputPacket extends LinkedControllerPacketBase implements com.zoritism.wirelesslinks.foundation.network.ModPackets.SimplePacketBase {
 
     private static final Logger LOGGER = LogManager.getLogger();
     private Collection<Integer> activatedButtons;
@@ -66,7 +63,7 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
                 return;
             if (hasLectern()) {
                 Level level = player.level();
-                LecternControllerBlockEntity lectern = getLectern(level, getLecternPos());
+                Object lectern = getLectern(level, getLecternPos());
                 LOGGER.info("[PACKET] handle: hasLectern, level={}, lecternPos={}, lectern={}", level, getLecternPos(), lectern);
                 handleLectern(player, lectern);
             } else {
@@ -106,7 +103,7 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
             return;
         }
 
-        // ВАЖНО! Используем оригинальные ItemStack из инвентаря контроллера
+        // Используем оригинальные ItemStack из инвентаря контроллера
         ItemStackHandler inv = LinkedControllerItem.getFrequencyInventory(heldItem);
         List<Couple<ItemStack>> frequencies = new ArrayList<>();
         for (int i : activatedButtons) {
@@ -121,16 +118,16 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
 
         LOGGER.info("[PACKET] handleItem: world={}, pos={}, uuid={}, frequencies={}, press={}", world, pos, uniqueID, frequencies, press);
 
-        // Новый sticky-сигнал: сразу выставляем powered всем receiver по этим частотам
+        // Новый sticky-сигнал: регистрируем виртуальный transmitter (или убираем)
         LinkedControllerServerHandler.setReceiversPowered(
-                world, frequencies, press
+                world, frequencies, press, uniqueID
         );
     }
 
     protected LecternControllerBlockEntity getLectern(Level level, BlockPos pos) {
         if (level == null || pos == null)
             return null;
-        BlockEntity be = level.getBlockEntity(pos);
+        var be = level.getBlockEntity(pos);
         LOGGER.info("[PACKET] getLectern: level={}, pos={}, blockEntity={}", level, pos, be);
         if (be instanceof LecternControllerBlockEntity l)
             return l;

@@ -154,7 +154,7 @@ public class LinkedControllerClientHandler {
 
 	@SubscribeEvent
 	public static void onClientTick(TickEvent.ClientTickEvent event) {
-		// Проверяем каждый тик, не убрали ли контроллер из руки или не сменили предмет
+		// Проверяем каждый тик, не убрали ли контроллер из руки, не сменили предмет или не выбросили контроллер
 		if (event.phase != TickEvent.Phase.END) return;
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
@@ -165,14 +165,22 @@ public class LinkedControllerClientHandler {
 			}
 			return;
 		}
+
+		// Проверка: был ли выброшен контроллер или сменился предмет в руке
 		ItemStack held = player.getMainHandItem();
 		boolean isController = held.is(ModItems.LINKED_CONTROLLER.get());
-		// Если мы были активны и предмет в руке сменился/убрали контроллер — сбрасываем режим
 		if (MODE == Mode.ACTIVE && !isController) {
 			MODE = Mode.IDLE;
 			onReset();
 			LOGGER.info("[Client] Lost controller in hand or changed item, switched to IDLE mode and reset");
 		}
+		// Дополнительная проверка: если был активен и контроллер был в руке, но теперь его нет вообще в инвентаре (выброшен или убран)
+		if (MODE == Mode.ACTIVE && !hasControllerAnywhere(player)) {
+			MODE = Mode.IDLE;
+			onReset();
+			LOGGER.info("[Client] Controller no longer present anywhere in player's inventory, switched to IDLE mode and reset");
+		}
+
 		lastHeldController = isController ? held : ItemStack.EMPTY;
 		// Остальной тик-логика
 		tick();
@@ -183,6 +191,19 @@ public class LinkedControllerClientHandler {
 		if (mc.player == null) return false;
 		ItemStack held = mc.player.getMainHandItem();
 		return held.is(ModItems.LINKED_CONTROLLER.get());
+	}
+
+	private static boolean hasControllerAnywhere(LocalPlayer player) {
+		// Проверяем наличие контроллера во всех слотах инвентаря (main, offhand, armor не требуется)
+		for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+			ItemStack stack = player.getInventory().getItem(i);
+			if (stack.is(ModItems.LINKED_CONTROLLER.get()))
+				return true;
+		}
+		ItemStack offhand = player.getOffhandItem();
+		if (offhand.is(ModItems.LINKED_CONTROLLER.get()))
+			return true;
+		return false;
 	}
 
 	private static void sendControlChannelPacket(int channel, boolean pressed) {

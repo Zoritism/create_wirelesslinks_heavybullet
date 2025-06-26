@@ -5,7 +5,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.*;
@@ -16,6 +15,7 @@ import org.apache.logging.log4j.Logger;
 
 /**
  * Менеджер сетей Redstone Link с поддержкой частот.
+ * Теперь поддерживает виртуальные передатчики для контроллеров (по UUID игрока).
  */
 public class LinkHandler extends SavedData {
 	private static final String NAME = "wirelesslinks_data";
@@ -23,6 +23,9 @@ public class LinkHandler extends SavedData {
 
 	private final Map<Couple<ItemStack>, Set<IRedstoneLinkable>> transmittersByFrequency = new HashMap<>();
 	private final Map<Couple<ItemStack>, Set<IRedstoneLinkable>> receiversByFrequency = new HashMap<>();
+
+	// Виртуальные передатчики: для Linked Controller — по UUID игрока
+	private final Map<Couple<ItemStack>, Map<UUID, Integer>> virtualTransmitters = new HashMap<>();
 
 	private static final Logger LOGGER = LogManager.getLogger();
 
@@ -47,7 +50,6 @@ public class LinkHandler extends SavedData {
 		if (newFrequency == null)
 			return;
 
-		// Удаляем линк только из всех частот если он уже где-то есть
 		removeLinkFromAllFrequencies(link);
 
 		if (link.isListening()) {
@@ -120,6 +122,11 @@ public class LinkHandler extends SavedData {
 		for (IRedstoneLinkable tx : transmitters) {
 			maxPower = Math.max(maxPower, tx.getTransmittedStrength());
 		}
+		Map<UUID, Integer> virtuals = virtualTransmitters.get(frequency);
+		if (virtuals != null) {
+			for (int power : virtuals.values())
+				maxPower = Math.max(maxPower, power);
+		}
 
 		for (IRedstoneLinkable rx : receivers) {
 			if (!rx.getFrequency().equals(frequency)) {
@@ -132,6 +139,59 @@ public class LinkHandler extends SavedData {
 				be.tick();
 			}
 		}
+	}
+
+	// ---- ВИРТУАЛЬНЫЕ ПЕРЕДАТЧИКИ ДЛЯ LINKED CONTROLLER ----
+
+	/**
+	 * Регистрирует виртуальный передатчик по частоте и UUID игрока.
+	 * Вызывать при нажатии кнопки контроллера.
+	 */
+	public void setVirtualTransmitter(Couple<ItemStack> frequency, UUID player, int strength) {
+		if (frequency == null || player == null)
+			return;
+		virtualTransmitters.computeIfAbsent(frequency, $ -> new HashMap<>()).put(player, strength);
+		LOGGER.info("[LinkHandler][setVirtualTransmitter] freq={}, player={}, strength={}", frequency, player, strength);
+		refreshChannel(frequency);
+		setDirty();
+	}
+
+	/**
+	 * Удаляет виртуальный передатчик по частоте и UUID игрока.
+	 * Вызывать при отпускании кнопки, выбрасывании контроллера, смерти игрока, выходе с сервера и т.д.
+	 */
+	public void removeVirtualTransmitter(Couple<ItemStack> frequency, UUID player) {
+		if (frequency == null || player == null)
+			return;
+		Map<UUID, Integer> map = virtualTransmitters.get(frequency);
+		if (map != null) {
+			map.remove(player);
+			if (map.isEmpty())
+				virtualTransmitters.remove(frequency);
+		}
+		LOGGER.info("[LinkHandler][removeVirtualTransmitter] freq={}, player={}", frequency, player);
+		refreshChannel(frequency);
+		setDirty();
+	}
+
+	/**
+	 * Удаляет все виртуальные передатчики для данного игрока (например, при выходе).
+	 */
+	public void removeAllVirtualTransmittersFor(UUID player) {
+		if (player == null)
+			return;
+		List<Couple<ItemStack>> toRemove = new ArrayList<>();
+		for (Map.Entry<Couple<ItemStack>, Map<UUID, Integer>> e : virtualTransmitters.entrySet()) {
+			e.getValue().remove(player);
+			if (e.getValue().isEmpty())
+				toRemove.add(e.getKey());
+		}
+		for (Couple<ItemStack> freq : toRemove) {
+			virtualTransmitters.remove(freq);
+			refreshChannel(freq);
+		}
+		setDirty();
+		LOGGER.info("[LinkHandler][removeAllVirtualTransmittersFor] player={}, frequencies removed: {}", player, toRemove.size());
 	}
 
 	@Override

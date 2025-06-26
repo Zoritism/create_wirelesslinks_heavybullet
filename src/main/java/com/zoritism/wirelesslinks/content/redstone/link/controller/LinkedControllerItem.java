@@ -179,7 +179,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 
 		// Sticky: сразу выставляем powered всем receiver по этой частоте
 		LinkedControllerServerHandler.setReceiversPowered(
-				level, List.of(couple), pressed
+				level, List.of(couple), pressed, playerId
 		);
 	}
 }
