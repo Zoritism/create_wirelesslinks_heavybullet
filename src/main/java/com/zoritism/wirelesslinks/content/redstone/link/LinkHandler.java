@@ -43,11 +43,12 @@ public class LinkHandler extends SavedData {
 		if (link == null)
 			return;
 
-		Couple<ItemStack> oldFrequency = link.getFrequency();
-		removeLink(link);
 		Couple<ItemStack> newFrequency = link.getFrequency();
 		if (newFrequency == null)
 			return;
+
+		// Удаляем линк только из всех частот если он уже где-то есть
+		removeLinkFromAllFrequencies(link);
 
 		if (link.isListening()) {
 			receiversByFrequency.computeIfAbsent(newFrequency, $ -> new HashSet<>()).add(link);
@@ -57,9 +58,18 @@ public class LinkHandler extends SavedData {
 			LOGGER.info("[LinkHandler][updateLink] Registered transmitter: {} at {} for frequency {}", link.getClass().getSimpleName(), link.getLocation(), newFrequency);
 		}
 
-		refreshChannel(oldFrequency);
 		refreshChannel(newFrequency);
 		setDirty();
+	}
+
+	/** Удаляет линк из всех частот (чтобы не было дублей при смене) */
+	private void removeLinkFromAllFrequencies(IRedstoneLinkable link) {
+		for (Set<IRedstoneLinkable> set : transmittersByFrequency.values()) {
+			set.remove(link);
+		}
+		for (Set<IRedstoneLinkable> set : receiversByFrequency.values()) {
+			set.remove(link);
+		}
 	}
 
 	public void removeLink(IRedstoneLinkable link) {
