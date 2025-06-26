@@ -160,11 +160,24 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		handleUpdateTag(pkt.getTag());
 	}
 
-	@Override public BlockPos getLocation()             { return worldPosition; }
-	@Override public Level getLevel()                   { return level; }
-	@Override public int getTransmittedStrength()       { return transmittedSignal; }
-	@Override public void setReceivedStrength(int power){ receivedSignal = power; }
-	@Override public boolean isListening()              { return !transmitter; }
+	@Override
+	public BlockPos getLocation()             { return worldPosition; }
+	@Override
+	public Level getLevel()                   { return level; }
+	@Override
+	public int getTransmittedStrength()       { return transmittedSignal; }
+
+	@Override
+	public void setReceivedStrength(int power) {
+		if (receivedSignal != power) {
+			receivedSignal = power;
+			receivedSignalChanged = true;
+			tick(); // сразу обновить POWERED и соседей
+		}
+	}
+
+	@Override
+	public boolean isListening()              { return !transmitter; }
 
 	@Override
 	public Couple<ItemStack> getFrequency() {
