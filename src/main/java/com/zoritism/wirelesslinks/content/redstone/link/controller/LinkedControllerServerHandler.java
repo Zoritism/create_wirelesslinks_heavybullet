@@ -146,10 +146,18 @@ public class LinkedControllerServerHandler {
 
 		@Override
 		public Couple<ItemStack> getFrequency() {
-			// ВАЖНО: возвращаем реальные ItemStack для LinkHandler!
-			ItemStack a = key.getFirst() == null ? ItemStack.EMPTY : key.getFirst().getStack();
-			ItemStack b = key.getSecond() == null ? ItemStack.EMPTY : key.getSecond().getStack();
+			// Нормализуем ItemStack как в RedstoneLinkBlockEntity
+			ItemStack a = key.getFirst() == null ? ItemStack.EMPTY : normalize(key.getFirst().getStack());
+			ItemStack b = key.getSecond() == null ? ItemStack.EMPTY : normalize(key.getSecond().getStack());
 			return Couple.of(a, b);
+		}
+
+		private static ItemStack normalize(ItemStack in) {
+			if (in == null || in.isEmpty())
+				return ItemStack.EMPTY;
+			ItemStack copy = in.copy();
+			copy.setTag(null);
+			return copy;
 		}
 
 		@Override

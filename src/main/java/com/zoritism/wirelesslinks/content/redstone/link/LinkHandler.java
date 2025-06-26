@@ -33,11 +33,6 @@ public class LinkHandler extends SavedData {
 				}, LinkHandler::new, NAME);
 	}
 
-	// === ДОбАВЛЕН НОВЫЙ МЕТОД ===
-	public void addLink(IRedstoneLinkable link) {
-		updateLink(link);
-	}
-
 	public void updateLink(IRedstoneLinkable link) {
 		if (link == null)
 			return;
