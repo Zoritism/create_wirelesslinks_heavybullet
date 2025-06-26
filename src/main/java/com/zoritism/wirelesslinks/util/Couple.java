@@ -37,10 +37,10 @@ public class Couple<T> {
         if (!(obj instanceof Couple<?> other))
             return false;
 
-        // Если элементы — ItemStack, сравниваем как Frequency: isSameItemSameTags + count
+        // Если элементы — ItemStack, сравниваем как Frequency (isSameItemSameTags + count)
         if (first instanceof ItemStack f1 && second instanceof ItemStack s1
                 && other.first instanceof ItemStack f2 && other.second instanceof ItemStack s2) {
-            // Считаем все пустые стеки одинаковыми частотами
+
             boolean leftEmpty = f1.isEmpty() && f2.isEmpty();
             boolean rightEmpty = s1.isEmpty() && s2.isEmpty();
             if (leftEmpty && rightEmpty)
@@ -56,7 +56,6 @@ public class Couple<T> {
     @Override
     public int hashCode() {
         if (first instanceof ItemStack f && second instanceof ItemStack s) {
-            // Совместимо с Frequency.hashCode
             int left = f.isEmpty() ? 0 : Objects.hash(f.getItem(), f.getTag(), f.getCount());
             int right = s.isEmpty() ? 0 : Objects.hash(s.getItem(), s.getTag(), s.getCount());
             return Objects.hash(left, right);
