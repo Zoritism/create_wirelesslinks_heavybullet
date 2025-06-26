@@ -88,10 +88,9 @@ public class LinkedControllerServerHandler {
 			// pressed == true и такой частоты ещё нет
 			ManualFrequencyEntry newEntry = new ManualFrequencyEntry(pos, key);
 			list.add(newEntry);
-			LinkHandler.get(level).addLink(newEntry);
+			LinkHandler.get(level).updateLink(newEntry);
 			LOGGER.info("[SERVER] Added new ManualFrequencyEntry: pos={}, key={}, player={}", pos, key, playerId);
 		}
-
 		// Если pressed==false и какая-то частота не была найдена, ничего не делаем (она и так выключена)
 	}
 
@@ -147,7 +146,7 @@ public class LinkedControllerServerHandler {
 
 		@Override
 		public Couple<ItemStack> getFrequency() {
-			// Переводим Couple<Frequency> -> Couple<ItemStack> для LinkHandler
+			// ВАЖНО: возвращаем реальные ItemStack для LinkHandler!
 			ItemStack a = key.getFirst() == null ? ItemStack.EMPTY : key.getFirst().getStack();
 			ItemStack b = key.getSecond() == null ? ItemStack.EMPTY : key.getSecond().getStack();
 			return Couple.of(a, b);
