@@ -6,6 +6,7 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.zoritism.wirelesslinks.registry.ModItems;
+import com.zoritism.wirelesslinks.foundation.network.ModPackets;
 import com.zoritism.wirelesslinks.util.Couple;
 
 import net.minecraft.ChatFormatting;
@@ -41,6 +42,7 @@ public class LinkedControllerClientHandler {
 	private static BlockPos lecternPos = null;
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
+	private static boolean f5Pressed = false;
 
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
@@ -92,60 +94,26 @@ public class LinkedControllerClientHandler {
 		selectedLocation = BlockPos.ZERO;
 		lecternPos = null;
 		currentlyPressed.clear();
-		// TODO: сброс визуальных кнопок, если требуется
+		f5Pressed = false;
 		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared)");
 	}
 
-	/**
-	 * Обработка нажатия F5: отправить powered:true по всем реально заданным частотам контроллера
-	 */
 	@SubscribeEvent
 	public static void onKeyInput(InputEvent.Key event) {
-		if (event.getKey() == GLFW.GLFW_KEY_F5 && event.getAction() == GLFW.GLFW_PRESS) {
-			sendTestPacket();
+		if (event.getKey() == GLFW.GLFW_KEY_F5) {
+			if (event.getAction() == GLFW.GLFW_PRESS) {
+				f5Pressed = true;
+			} else if (event.getAction() == GLFW.GLFW_RELEASE) {
+				f5Pressed = false;
+				// При отпускании F5 также отправь "отпущено" для всех частот
+				sendTestPacket(false);
+			}
 		}
 	}
 
-	public static void sendTestPacket() {
-		LOGGER.info("[Client] F5 pressed! Sending powered:true for all channels in linked controller...");
-		Minecraft mc = Minecraft.getInstance();
-		LocalPlayer player = mc.player;
-		if (player != null) {
-			ItemStack heldItem = player.getMainHandItem();
-			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-				heldItem = player.getOffhandItem();
-			}
-			if (heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-				ItemStackHandler inv = LinkedControllerItem.getFrequencyInventory(heldItem);
-				int slotCount = 12; // 6 пар частот
-				List<Couple<ItemStack>> frequencyCouples = new ArrayList<>();
-				for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
-					int aIdx = logicalSlot * 2;
-					int bIdx = aIdx + 1;
-					ItemStack a = inv.getStackInSlot(aIdx);
-					ItemStack b = inv.getStackInSlot(bIdx);
-					if (!a.isEmpty() || !b.isEmpty()) {
-						frequencyCouples.add(Couple.of(a, b));
-						LOGGER.info("[Client] [F5] LogicalSlot {}: A={}, B={}", logicalSlot, a, b);
-					}
-				}
-				if (!frequencyCouples.isEmpty()) {
-					LinkedControllerServerHandler.receivePressed(
-							player.level(), player.blockPosition(), player.getUUID(),
-							frequencyCouples, true // powered:true
-					);
-					LOGGER.info("[Client] [F5] Sent powered:true for {} channels", frequencyCouples.size());
-				} else {
-					LOGGER.info("[Client] [F5] No frequencies set in controller, nothing sent.");
-				}
-			} else {
-				LOGGER.info("[Client] [F5] No linked controller in hand.");
-			}
-		} else {
-			LOGGER.info("[Client] [F5] No player instance.");
-		}
-	}
-
+	/**
+	 * Теперь слать пакет нужно каждый тик, пока f5Pressed=true
+	 */
 	public static void tick() {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
@@ -180,52 +148,62 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		Vector<KeyMapping> controls = DefaultControls.getControls();
-		Set<Integer> pressedKeys = new HashSet<>();
-		for (int i = 0; i < controls.size(); i++) {
-			if (controls.get(i).isDown())
-				pressedKeys.add(i);
+		if (f5Pressed && packetCooldown == 0) {
+			sendTestPacket(true);
+			packetCooldown = PACKET_RATE;
 		}
+	}
 
-		Set<Integer> newKeys = new HashSet<>(pressedKeys);
-		Set<Integer> releasedKeys = new HashSet<>(currentlyPressed);
-		newKeys.removeAll(currentlyPressed);
-		releasedKeys.removeAll(pressedKeys);
-
-		if (MODE == Mode.ACTIVE) {
-			// TODO: отправка пакета releasedKeys (false)
-			// TODO: отправка пакета newKeys (true)
-			// TODO: keepalive packet для всех нажатых pressedKeys (true)
-			if (!releasedKeys.isEmpty()) {
-				LOGGER.info("[Client] tick: releasedKeys={}", releasedKeys);
-				// send released packet
+	/**
+	 * Отправляет сетевой пакет для всех частот контроллера с указанным состоянием powered (true = нажатие, false = отпускание)
+	 */
+	public static void sendTestPacket(boolean powered) {
+		LOGGER.info("[Client] F5 {}! Sending powered:{} for all channels in linked controller...", powered ? "pressed" : "released", powered);
+		Minecraft mc = Minecraft.getInstance();
+		LocalPlayer player = mc.player;
+		if (player != null) {
+			ItemStack heldItem = player.getMainHandItem();
+			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+				heldItem = player.getOffhandItem();
 			}
-			if (!newKeys.isEmpty()) {
-				LOGGER.info("[Client] tick: newKeys={}", newKeys);
-				// send pressed packet
-				packetCooldown = PACKET_RATE;
+			if (heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+				ItemStackHandler inv = LinkedControllerItem.getFrequencyInventory(heldItem);
+				int slotCount = 12; // 6 пар частот
+				List<Couple<ItemStack>> frequencyCouples = new ArrayList<>();
+				for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
+					int aIdx = logicalSlot * 2;
+					int bIdx = aIdx + 1;
+					ItemStack a = inv.getStackInSlot(aIdx);
+					ItemStack b = inv.getStackInSlot(bIdx);
+					if (!a.isEmpty() || !b.isEmpty()) {
+						frequencyCouples.add(Couple.of(a, b));
+						LOGGER.info("[Client] [F5] LogicalSlot {}: A={}, B={}", logicalSlot, a, b);
+					}
+				}
+				if (!frequencyCouples.isEmpty()) {
+					// Используем сетевой пакет вместо прямого вызова сервера!
+					ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
+							makeButtonIndices(frequencyCouples), powered
+					));
+					LOGGER.info("[Client] [F5] Sent powered:{} for {} channels", powered, frequencyCouples.size());
+				} else {
+					LOGGER.info("[Client] [F5] No frequencies set in controller, nothing sent.");
+				}
+			} else {
+				LOGGER.info("[Client] [F5] No linked controller in hand.");
 			}
-			if (packetCooldown == 0 && !pressedKeys.isEmpty()) {
-				LOGGER.info("[Client] tick: keepalive for pressedKeys={}", pressedKeys);
-				// send keepalive packet
-				packetCooldown = PACKET_RATE;
-			}
+		} else {
+			LOGGER.info("[Client] [F5] No player instance.");
 		}
+	}
 
-		if (MODE == Mode.BIND) {
-			// TODO: визуализация выделения блока (shape), если требуется
-			for (Integer integer : newKeys) {
-				LOGGER.info("[Client] tick: Bind mode, key pressed: {} (binding to block {})", integer, selectedLocation);
-				// TODO: отправка пакета бинда (integer, selectedLocation)
-				MODE = Mode.IDLE;
-				break;
-			}
+	// Вспомогательная функция для передачи индексов активных кнопок/слотов (0..5)
+	private static List<Integer> makeButtonIndices(List<Couple<ItemStack>> couples) {
+		List<Integer> indices = new ArrayList<>();
+		for (int i = 0; i < couples.size(); i++) {
+			indices.add(i);
 		}
-
-		currentlyPressed = pressedKeys;
-
-		// Сбросить нажатие, чтобы движения игрока не происходили
-		controls.forEach(kb -> kb.setDown(false));
+		return indices;
 	}
 
 	public static void renderOverlay(ForgeGui gui, GuiGraphics graphics, float partialTicks, int screenWidth, int screenHeight) {
