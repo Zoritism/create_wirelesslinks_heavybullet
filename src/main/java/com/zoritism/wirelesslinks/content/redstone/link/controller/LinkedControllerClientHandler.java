@@ -50,8 +50,8 @@ public class LinkedControllerClientHandler {
 			GLFW.GLFW_KEY_A,    // 1
 			GLFW.GLFW_KEY_S,    // 2
 			GLFW.GLFW_KEY_D,    // 3
-			GLFW.GLFW_KEY_LEFT_SHIFT, // 4
-			GLFW.GLFW_KEY_SPACE // 5
+			GLFW.GLFW_KEY_LEFT_SHIFT, // 4 (Shift)
+			GLFW.GLFW_KEY_SPACE // 5 (Space)
 	};
 
 	public static void toggleBindMode(BlockPos location) {
@@ -99,7 +99,6 @@ public class LinkedControllerClientHandler {
 	}
 
 	protected static void onReset() {
-		// Сбросить KeyMapping для управляющих клавиш, чтобы игрок снова мог ходить
 		Vector<KeyMapping> controls = DefaultControls.getControls();
 		for (int i = 0; i < CONTROL_KEYS.length; i++) {
 			try {
@@ -116,7 +115,6 @@ public class LinkedControllerClientHandler {
 
 	@SubscribeEvent
 	public static void onKeyInput(InputEvent.Key event) {
-		// F5: общий сигнал для всех каналов (как ранее)
 		if (event.getKey() == GLFW.GLFW_KEY_F5) {
 			if (event.getAction() == GLFW.GLFW_PRESS) {
 				f5Pressed = true;
@@ -127,14 +125,12 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		// Управление контроллером: если активен режим контроллера, обрабатываем movement keys для управления каналами
 		if (MODE == Mode.ACTIVE) {
 			for (int i = 0; i < CONTROL_KEYS.length; i++) {
 				if (event.getKey() == CONTROL_KEYS[i]) {
-					// Вместо event.setCanceled(true) просто сбрасываем KeyMapping (блокируем движение)
 					Vector<KeyMapping> controls = DefaultControls.getControls();
 					try {
-						controls.get(i).setDown(event.getAction() == GLFW.GLFW_PRESS);
+						controls.get(i).setDown(false); // блокируем движение!
 					} catch (Exception ignored) {}
 
 					if (event.getAction() == GLFW.GLFW_PRESS) {
@@ -152,9 +148,6 @@ public class LinkedControllerClientHandler {
 		}
 	}
 
-	/**
-	 * Отправляет пакет на сервер для конкретного канала контроллера (0..5) и состояния (pressed/released).
-	 */
 	private static void sendControlChannelPacket(int channel, boolean pressed) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
@@ -183,9 +176,6 @@ public class LinkedControllerClientHandler {
 		}
 	}
 
-	/**
-	 * Теперь слать пакет нужно каждый тик, пока f5Pressed=true
-	 */
 	public static void tick() {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
@@ -226,9 +216,6 @@ public class LinkedControllerClientHandler {
 		}
 	}
 
-	/**
-	 * Отправляет сетевой пакет для всех частот контроллера с указанным состоянием powered (true = нажатие, false = отпускание)
-	 */
 	public static void sendTestPacket(boolean powered) {
 		LOGGER.info("[Client] F5 {}! Sending powered:{} for all channels in linked controller...", powered ? "pressed" : "released", powered);
 		Minecraft mc = Minecraft.getInstance();
@@ -253,7 +240,6 @@ public class LinkedControllerClientHandler {
 					}
 				}
 				if (!frequencyCouples.isEmpty()) {
-					// Используем сетевой пакет вместо прямого вызова сервера!
 					ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
 							makeButtonIndices(frequencyCouples), powered
 					));
@@ -269,7 +255,6 @@ public class LinkedControllerClientHandler {
 		}
 	}
 
-	// Вспомогательная функция для передачи индексов активных кнопок/слотов (0..5)
 	private static List<Integer> makeButtonIndices(List<Couple<ItemStack>> couples) {
 		List<Integer> indices = new ArrayList<>();
 		for (int i = 0; i < couples.size(); i++) {
