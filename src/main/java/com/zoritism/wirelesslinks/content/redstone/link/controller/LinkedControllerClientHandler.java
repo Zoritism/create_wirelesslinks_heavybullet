@@ -6,7 +6,6 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.zoritism.wirelesslinks.registry.ModItems;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
 import com.zoritism.wirelesslinks.util.Couple;
 
 import net.minecraft.ChatFormatting;
@@ -25,6 +24,7 @@ import net.minecraftforge.client.gui.overlay.ForgeGui;
 import net.minecraftforge.client.gui.overlay.IGuiOverlay;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.items.ItemStackHandler;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -116,12 +116,14 @@ public class LinkedControllerClientHandler {
 				heldItem = player.getOffhandItem();
 			}
 			if (heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+				ItemStackHandler inv = LinkedControllerItem.getFrequencyInventory(heldItem);
 				int slotCount = 12; // 6 пар частот
 				List<Couple<ItemStack>> frequencyCouples = new ArrayList<>();
 				for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
-					FrequencyPair pair = LinkedControllerItem.slotToFrequency(heldItem, logicalSlot);
-					ItemStack a = pair.getFirst().getStack();
-					ItemStack b = pair.getSecond().getStack();
+					int aIdx = logicalSlot * 2;
+					int bIdx = aIdx + 1;
+					ItemStack a = inv.getStackInSlot(aIdx);
+					ItemStack b = inv.getStackInSlot(bIdx);
 					if (!a.isEmpty() || !b.isEmpty()) {
 						frequencyCouples.add(Couple.of(a, b));
 						LOGGER.info("[Client] [F5] LogicalSlot {}: A={}, B={}", logicalSlot, a, b);
