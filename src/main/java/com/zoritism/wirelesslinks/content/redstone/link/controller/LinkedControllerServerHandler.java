@@ -1,8 +1,8 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
 import com.zoritism.wirelesslinks.content.redstone.link.IRedstoneLinkable;
+import com.zoritism.wirelesslinks.content.redstone.link.LinkHandler;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.Frequency;
-import com.zoritism.wirelesslinks.content.redstone.link.WirelessLinkNetworkHandler;
 import com.zoritism.wirelesslinks.util.Couple;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
@@ -35,7 +35,7 @@ public class LinkedControllerServerHandler {
 				manual.decrement();
 				if (!manual.isAlive()) {
 					LOGGER.info("[SERVER] Removing expired ManualFrequencyEntry: pos={}, key={}", manual.getLocation(), manual.getNetworkKey());
-					WirelessLinkNetworkHandler.removeFromNetwork(level, manual);
+					LinkHandler.get(level).removeLink(manual);
 					entryIt.remove();
 				}
 			}
@@ -70,9 +70,11 @@ public class LinkedControllerServerHandler {
 					if (!pressed) {
 						entry.setTimeout(0);
 						LOGGER.info("[SERVER] Frequency disabled: setTimeout(0) for key={}", key);
+						LinkHandler.get(level).removeLink(entry);
 					} else {
 						entry.updatePosition(pos);
 						LOGGER.info("[SERVER] Frequency refreshed: updatePosition({}) for key={}", pos, key);
+						LinkHandler.get(level).updateLink(entry);
 					}
 					continue nextKey;
 				}
@@ -86,7 +88,7 @@ public class LinkedControllerServerHandler {
 			// pressed == true и такой частоты ещё нет
 			ManualFrequencyEntry newEntry = new ManualFrequencyEntry(pos, key);
 			list.add(newEntry);
-			WirelessLinkNetworkHandler.addToNetwork(level, newEntry);
+			LinkHandler.get(level).addLink(newEntry);
 			LOGGER.info("[SERVER] Added new ManualFrequencyEntry: pos={}, key={}, player={}", pos, key, playerId);
 		}
 
@@ -145,8 +147,10 @@ public class LinkedControllerServerHandler {
 
 		@Override
 		public Couple<ItemStack> getFrequency() {
-			// Возвращает пустую частоту, т.к. используется только ключ
-			return Couple.of(ItemStack.EMPTY, ItemStack.EMPTY);
+			// Переводим Couple<Frequency> -> Couple<ItemStack> для LinkHandler
+			ItemStack a = key.getFirst() == null ? ItemStack.EMPTY : key.getFirst().getStack();
+			ItemStack b = key.getSecond() == null ? ItemStack.EMPTY : key.getSecond().getStack();
+			return Couple.of(a, b);
 		}
 
 		@Override
