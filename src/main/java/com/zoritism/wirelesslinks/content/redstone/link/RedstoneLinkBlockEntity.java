@@ -43,11 +43,9 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		if (level == null || level.isClientSide)
 			return;
 
-		// Актуализируем transmitter на каждый тик
 		boolean prevTransmitter = transmitter;
 		transmitter = isTransmitterBlock();
 
-		// Форсируем регистрацию в WLNH на каждом серверном тике!
 		WirelessLinkNetworkHandler.removeFromNetwork(level, this);
 		WirelessLinkNetworkHandler.addToNetwork(level, this);
 
@@ -56,9 +54,10 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		if (prevTransmitter != transmitter) {
 			LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={} transmitter state changed to {}, updating link", worldPosition, transmitter);
 			updateLink();
-			return; // повторная передача произойдет из updateLink
+			return;
 		}
 
+		// ВАЖНО: теперь transmitter реально передает сигнал
 		if (transmitter) {
 			boolean powered = level.hasNeighborSignal(worldPosition);
 			int newSignal = powered ? 15 : 0;
@@ -67,6 +66,18 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			}
 			return;
 		}
+
+		boolean powered = receivedSignal > 0;
+		BlockState state = getBlockState();
+		if (state.getValue(RedstoneLinkBlock.POWERED) != powered) {
+			receivedSignalChanged = true;
+			LOGGER.info("[RedstoneLinkBlockEntity][tick] pos={} changing blockstate POWERED to {}", worldPosition, powered);
+			level.setBlockAndUpdate(worldPosition, state.setValue(RedstoneLinkBlock.POWERED, powered));
+		}
+
+		if (receivedSignalChanged)
+			propagateNeighbourUpdates(state);
+	}
 
 		boolean powered = receivedSignal > 0;
 		BlockState state = getBlockState();
