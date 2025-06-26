@@ -44,6 +44,16 @@ public class LinkedControllerClientHandler {
 	private static int packetCooldown = 0;
 	private static boolean f5Pressed = false;
 
+	// Основные control-ключи для управления контроллером, соответствуют каналам 0..5
+	private static final int[] CONTROL_KEYS = {
+			GLFW.GLFW_KEY_W,    // 0
+			GLFW.GLFW_KEY_A,    // 1
+			GLFW.GLFW_KEY_S,    // 2
+			GLFW.GLFW_KEY_D,    // 3
+			GLFW.GLFW_KEY_LEFT_SHIFT, // 4
+			GLFW.GLFW_KEY_SPACE // 5
+	};
+
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.BIND;
@@ -89,7 +99,13 @@ public class LinkedControllerClientHandler {
 	}
 
 	protected static void onReset() {
-		DefaultControls.getControls().forEach(kb -> kb.setDown(kb.isDown()));
+		// Сбросить KeyMapping для управляющих клавиш, чтобы игрок снова мог ходить
+		Vector<KeyMapping> controls = DefaultControls.getControls();
+		for (int i = 0; i < CONTROL_KEYS.length; i++) {
+			try {
+				controls.get(i).setDown(false);
+			} catch (Exception ignored) {}
+		}
 		packetCooldown = 0;
 		selectedLocation = BlockPos.ZERO;
 		lecternPos = null;
@@ -100,20 +116,114 @@ public class LinkedControllerClientHandler {
 
 	@SubscribeEvent
 	public static void onKeyInput(InputEvent.Key event) {
+		// F5: общий сигнал для всех каналов (как ранее)
 		if (event.getKey() == GLFW.GLFW_KEY_F5) {
 			if (event.getAction() == GLFW.GLFW_PRESS) {
 				f5Pressed = true;
-				sendTestPacket(true); // <-- ОТПРАВЛЯЕМ powered:true СРАЗУ при нажатии!
 			} else if (event.getAction() == GLFW.GLFW_RELEASE) {
 				f5Pressed = false;
 				sendTestPacket(false);
 			}
+			return;
+		}
+
+		// Управление контроллером: если активен режим контроллера, обрабатываем movement keys для управления каналами
+		if (MODE == Mode.ACTIVE) {
+			for (int i = 0; i < CONTROL_KEYS.length; i++) {
+				if (event.getKey() == CONTROL_KEYS[i]) {
+					// Вместо event.setCanceled(true) просто сбрасываем KeyMapping (блокируем движение)
+					Vector<KeyMapping> controls = DefaultControls.getControls();
+					try {
+						controls.get(i).setDown(event.getAction() == GLFW.GLFW_PRESS);
+					} catch (Exception ignored) {}
+
+					if (event.getAction() == GLFW.GLFW_PRESS) {
+						if (currentlyPressed.add(i)) {
+							sendControlChannelPacket(i, true);
+						}
+					} else if (event.getAction() == GLFW.GLFW_RELEASE) {
+						if (currentlyPressed.remove(i)) {
+							sendControlChannelPacket(i, false);
+						}
+					}
+					return;
+				}
+			}
 		}
 	}
 
-	// tick теперь не нужен для sticky-сигнала, но можно оставить если нужно
+	/**
+	 * Отправляет пакет на сервер для конкретного канала контроллера (0..5) и состояния (pressed/released).
+	 */
+	private static void sendControlChannelPacket(int channel, boolean pressed) {
+		Minecraft mc = Minecraft.getInstance();
+		LocalPlayer player = mc.player;
+		if (player != null) {
+			ItemStack heldItem = player.getMainHandItem();
+			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+				heldItem = player.getOffhandItem();
+			}
+			if (heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+				ItemStackHandler inv = LinkedControllerItem.getFrequencyInventory(heldItem);
+
+				int aIdx = channel * 2;
+				int bIdx = aIdx + 1;
+				ItemStack a = inv.getStackInSlot(aIdx);
+				ItemStack b = inv.getStackInSlot(bIdx);
+				if (!a.isEmpty() || !b.isEmpty()) {
+					List<Couple<ItemStack>> frequencyCouples = List.of(Couple.of(a, b));
+					ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
+							List.of(channel), pressed
+					));
+					LOGGER.info("[Client] [CTRL] Channel {} key {}: Sent powered:{} for ({}, {})", channel, CONTROL_KEYS[channel], pressed, a, b);
+				}
+			} else {
+				LOGGER.info("[Client] [CTRL] No linked controller in hand.");
+			}
+		}
+	}
+
+	/**
+	 * Теперь слать пакет нужно каждый тик, пока f5Pressed=true
+	 */
 	public static void tick() {
-		// Можно оставить пустым, если не требуется удержание
+		Minecraft mc = Minecraft.getInstance();
+		LocalPlayer player = mc.player;
+
+		if (MODE == Mode.IDLE)
+			return;
+		if (packetCooldown > 0)
+			packetCooldown--;
+
+		if (player == null || player.isSpectator()) {
+			MODE = Mode.IDLE;
+			onReset();
+			LOGGER.info("[Client] tick: Player is null or spectator, switched to IDLE and reset");
+			return;
+		}
+
+		ItemStack heldItem = player.getMainHandItem();
+		if (!inLectern() && !heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+			heldItem = player.getOffhandItem();
+			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
+				MODE = Mode.IDLE;
+				onReset();
+				LOGGER.info("[Client] tick: No linked controller in hand, switched to IDLE and reset");
+				return;
+			}
+		}
+
+		if (mc.screen != null || InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_ESCAPE)) {
+			MODE = Mode.IDLE;
+			onReset();
+			LOGGER.info("[Client] tick: Some screen opened or ESC pressed, switched to IDLE and reset");
+			return;
+		}
+
+		if (f5Pressed && packetCooldown == 0) {
+			sendTestPacket(true);
+			packetCooldown = PACKET_RATE;
+		}
 	}
 
 	/**
@@ -143,6 +253,7 @@ public class LinkedControllerClientHandler {
 					}
 				}
 				if (!frequencyCouples.isEmpty()) {
+					// Используем сетевой пакет вместо прямого вызова сервера!
 					ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
 							makeButtonIndices(frequencyCouples), powered
 					));
@@ -158,6 +269,7 @@ public class LinkedControllerClientHandler {
 		}
 	}
 
+	// Вспомогательная функция для передачи индексов активных кнопок/слотов (0..5)
 	private static List<Integer> makeButtonIndices(List<Couple<ItemStack>> couples) {
 		List<Integer> indices = new ArrayList<>();
 		for (int i = 0; i < couples.size(); i++) {
