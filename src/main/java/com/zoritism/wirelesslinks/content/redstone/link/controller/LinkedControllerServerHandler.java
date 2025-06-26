@@ -34,6 +34,8 @@ public class LinkedControllerServerHandler {
 			for (Iterator<ManualFrequencyEntry> entryIt = list.iterator(); entryIt.hasNext(); ) {
 				ManualFrequencyEntry manual = entryIt.next();
 				manual.decrement();
+				// Вот тут: каждый тик обновляем канал!
+				LinkHandler.get(level).refreshChannel(manual.getFrequency());
 				LOGGER.info("[LinkedControllerServerHandler][tick] Decremented entry: pos={}, key={}, timeout={}", manual.getLocation(), manual.getNetworkKey(), manual.timeout);
 				if (!manual.isAlive()) {
 					LOGGER.info("[LinkedControllerServerHandler][tick] Removing expired ManualFrequencyEntry: pos={}, key={}", manual.getLocation(), manual.getNetworkKey());
@@ -157,7 +159,6 @@ public class LinkedControllerServerHandler {
 
 		@Override
 		public Couple<Frequency> getNetworkKey() {
-			// Для совместимости с WirelessLinkNetworkHandler, возвращаем пустую "виртуальную" частоту
 			LOGGER.info("[ManualFrequencyEntry][getNetworkKey] pos={}, key={}", pos, frequencyKey);
 			return Couple.of(Frequency.of(frequencyKey.getFirst()), Frequency.of(frequencyKey.getSecond()));
 		}
