@@ -4,8 +4,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
 public enum AllIcons {
-    I_TRASH(0, 0),
-    I_CONFIRM(1, 0);
+    I_TRASH(1, 0),
+    I_CONFIRM(0, 1);
     // Добавляй другие иконки по аналогии: I_ADD(2, 0), ...
 
     public static final ResourceLocation ICON_ATLAS = new ResourceLocation("wirelesslinks", "textures/gui/icons.png");

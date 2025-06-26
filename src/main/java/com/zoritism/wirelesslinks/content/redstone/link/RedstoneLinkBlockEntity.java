@@ -14,6 +14,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
+/**
+ * Минималистичная реализация RedstoneLinkBlockEntity, максимально приближённая к Create.
+ * Без логирования.
+ */
 public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLinkable {
 
 	private boolean receivedSignalChanged;
