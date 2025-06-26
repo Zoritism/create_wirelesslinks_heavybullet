@@ -32,8 +32,9 @@ public class WirelessLinkNetworkHandler {
             return;
         }
 
-        LOGGER.info("[WLNH] addToNetwork: level={}, linkClass={}, linkLoc={}, key={}, isListening={}, isAlive={}",
-                level.dimension().location(), link.getClass().getSimpleName(), link.getLocation(), link.getNetworkKey(), link.isListening(), link.isAlive());
+        LOGGER.info("[WLNH] addToNetwork: level={}, linkClass={}, linkLoc={}, key={}, isListening={}, isAlive={}, keyHash={}, freqHash={}",
+                level.dimension().location(), link.getClass().getSimpleName(), link.getLocation(), link.getNetworkKey(), link.isListening(), link.isAlive(),
+                link.getNetworkKey().hashCode(), link.getFrequency().hashCode());
 
         NETWORKS
                 .computeIfAbsent(level, l -> new HashMap<>())
@@ -42,12 +43,17 @@ public class WirelessLinkNetworkHandler {
 
         LOGGER.info("[WLNH] addToNetwork: Added to network. Current network size for key {}: {}", link.getNetworkKey(), NETWORKS.get(level).get(link.getNetworkKey()).size());
 
-        // Логируем текущее содержимое сети для ключа
+        // Логируем текущее содержимое сети для ключа, с hash'ами
         List<IRedstoneLinkable> currentList = NETWORKS.get(level).get(link.getNetworkKey());
         if (currentList != null) {
             for (IRedstoneLinkable l : currentList) {
-                LOGGER.info("[WLNH] [NetworkContent] key={} linkClass={} loc={} isListening={} isAlive={}",
-                        link.getNetworkKey(), l.getClass().getSimpleName(), l.getLocation(), l.isListening(), l.isAlive());
+                LOGGER.info("[WLNH] [NetworkContent] key={} linkClass={} loc={} isListening={} isAlive={} keyHash={} freqHash={}",
+                        link.getNetworkKey(), l.getClass().getSimpleName(), l.getLocation(), l.isListening(), l.isAlive(),
+                        l.getNetworkKey().hashCode(), l.getFrequency().hashCode());
+                // Доп. лог для сравнения каждой частоты
+                if (l.getNetworkKey() != null && l.getFrequency() != null) {
+                    LOGGER.info("[WLNH] [Content]   key.toString={} freq.toString={}", l.getNetworkKey(), l.getFrequency());
+                }
             }
         }
 
@@ -60,7 +66,9 @@ public class WirelessLinkNetworkHandler {
             return;
         }
 
-        LOGGER.info("[WLNH] removeFromNetwork: level={}, linkClass={}, linkLoc={}, key={}", level.dimension().location(), link.getClass().getSimpleName(), link.getLocation(), link.getNetworkKey());
+        LOGGER.info("[WLNH] removeFromNetwork: level={}, linkClass={}, linkLoc={}, key={}, keyHash={}, freqHash={}",
+                level.dimension().location(), link.getClass().getSimpleName(), link.getLocation(), link.getNetworkKey(),
+                link.getNetworkKey().hashCode(), link.getFrequency().hashCode());
 
         Map<Couple<Frequency>, List<IRedstoneLinkable>> networks = NETWORKS.get(level);
         if (networks == null) {
@@ -78,13 +86,14 @@ public class WirelessLinkNetworkHandler {
         list.removeIf(l -> l == null || l.getLocation() == null || l.getLocation().equals(link.getLocation()));
         int after = list.size();
 
-        LOGGER.info("[WLNH] removeFromNetwork: After removal, size for key {}: {} (removed {})", link.getNetworkKey(), after, before - after);
+        LOGGER.info("[WLNH] removeFromNetwork: After removal, size for key {}: {} (removed {}), keyHash={}, freqHash={}", link.getNetworkKey(), after, before - after, link.getNetworkKey().hashCode(), link.getFrequency().hashCode());
 
         // Логируем оставшихся участников сети
         if (after > 0) {
             for (IRedstoneLinkable l : list) {
-                LOGGER.info("[WLNH] [NetworkContent] key={} linkClass={} loc={} isListening={} isAlive={}",
-                        link.getNetworkKey(), l.getClass().getSimpleName(), l.getLocation(), l.isListening(), l.isAlive());
+                LOGGER.info("[WLNH] [NetworkContent] key={} linkClass={} loc={} isListening={} isAlive={} keyHash={} freqHash={}",
+                        link.getNetworkKey(), l.getClass().getSimpleName(), l.getLocation(), l.isListening(), l.isAlive(),
+                        l.getNetworkKey().hashCode(), l.getFrequency().hashCode());
             }
         }
 
@@ -122,10 +131,14 @@ public class WirelessLinkNetworkHandler {
         int transmitters = 0;
         int receivers = 0;
 
-        // Логируем всю сеть по ключу
+        // Логируем всю сеть по ключу с hash-ами
         for (IRedstoneLinkable link : list) {
-            LOGGER.info("[WLNH] [UpdateNetwork] key={} linkClass={} loc={} isListening={} isAlive={} transmittedStrength={}",
-                    key, link.getClass().getSimpleName(), link.getLocation(), link.isListening(), link.isAlive(), link.getTransmittedStrength());
+            LOGGER.info("[WLNH] [UpdateNetwork] key={} linkClass={} loc={} isListening={} isAlive={} transmittedStrength={} keyHash={} freqHash={}",
+                    key, link.getClass().getSimpleName(), link.getLocation(), link.isListening(), link.isAlive(),
+                    link.getTransmittedStrength(), link.getNetworkKey().hashCode(), link.getFrequency().hashCode());
+            if (link.getNetworkKey() != null && link.getFrequency() != null) {
+                LOGGER.info("[WLNH] [Content]   key.toString={} freq.toString={}", link.getNetworkKey(), link.getFrequency());
+            }
         }
 
         try {
@@ -133,7 +146,7 @@ public class WirelessLinkNetworkHandler {
             for (IRedstoneLinkable link : list) {
                 if (link != null && link.isAlive() && !link.isListening()) {
                     int power = link.getTransmittedStrength();
-                    LOGGER.info("[WLNH] updateNetwork: TRANSMITTER at {} key={} power={}", link.getLocation(), key, power);
+                    LOGGER.info("[WLNH] updateNetwork: TRANSMITTER at {} key={} power={} keyHash={} freqHash={}", link.getLocation(), key, power, link.getNetworkKey().hashCode(), link.getFrequency().hashCode());
                     maxPower = Math.max(maxPower, power);
                     transmitters++;
                 }
@@ -144,11 +157,11 @@ public class WirelessLinkNetworkHandler {
                 if (link != null && link.isAlive() && link.isListening()) {
                     receivers++;
                     link.setReceivedStrength(maxPower);
-                    LOGGER.info("[WLNH] updateNetwork: RECEIVER at {} key={} setReceivedStrength={}", link.getLocation(), key, maxPower);
+                    LOGGER.info("[WLNH] updateNetwork: RECEIVER at {} key={} setReceivedStrength={} keyHash={} freqHash={}", link.getLocation(), key, maxPower, link.getNetworkKey().hashCode(), link.getFrequency().hashCode());
                 }
             }
 
-            LOGGER.info("[WLNH] updateNetwork: Summary for key={}: transmitters={}, receivers={}, maxPower={}", key, transmitters, receivers, maxPower);
+            LOGGER.info("[WLNH] updateNetwork: Summary for key={}: transmitters={}, receivers={}, maxPower={}, keyHash={}", key, transmitters, receivers, maxPower, key.hashCode());
 
         } catch (ConcurrentModificationException e) {
             LOGGER.warn("[WLNH] updateNetwork: ConcurrentModificationException caught, likely during chunk unload.");
