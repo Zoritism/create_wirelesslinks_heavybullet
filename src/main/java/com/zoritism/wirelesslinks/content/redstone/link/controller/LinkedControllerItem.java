@@ -1,9 +1,6 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkBlock;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.Frequency;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkFrequency.FrequencyPair;
 import com.zoritism.wirelesslinks.registry.ModItems;
 import com.zoritism.wirelesslinks.util.Couple;
 import net.minecraft.core.BlockPos;
@@ -27,21 +24,18 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.extensions.common.IClientItemExtensions;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.items.ItemStackHandler;
+import net.minecraftforge.network.NetworkHooks;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-// LOGGING
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 @SuppressWarnings("deprecation")
 public class LinkedControllerItem extends Item implements MenuProvider {
 
 	public static final int SLOT_COUNT = 12 * 2;
-	private static final Logger LOGGER = LogManager.getLogger();
 
 	public LinkedControllerItem(Properties props) {
 		super(props);
@@ -55,24 +49,32 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		BlockPos pos = ctx.getClickedPos();
 		BlockState state = level.getBlockState(pos);
 
-		if (state.getBlock() instanceof RedstoneLinkBlock) {
-			if (level.isClientSide) {
-				LinkedControllerClientHandler.toggleBindMode(pos);
+		if (player.mayBuild()) {
+			if (player.isShiftKeyDown()) {
+				// Здесь мог бы быть swapControllers для лекторна, если реализовано
+				// Например:
+				// if (state.getBlock() instanceof LecternControllerBlock) { ... }
+				// В нашем случае это не реализовано, пропускаем
 			} else {
-				player.getCooldowns().addCooldown(this, 5);
+				if (state.getBlock() instanceof RedstoneLinkBlock) {
+					if (level.isClientSide)
+						DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> LinkedControllerClientHandler.toggleBindMode(pos));
+					player.getCooldowns().addCooldown(this, 2);
+					return InteractionResult.SUCCESS;
+				}
+
+				if (state.is(Blocks.LECTERN) && !state.getValue(LecternBlock.HAS_BOOK)) {
+					if (!level.isClientSide) {
+						ItemStack copy = player.isCreative() ? stack.copy() : stack.split(1);
+						LecternBlock.tryPlaceBook(player, level, pos, state, copy);
+					}
+					return InteractionResult.SUCCESS;
+				}
+
+				// Если будет свой LecternControllerBlock, можно обработать тут
 			}
-			return InteractionResult.SUCCESS;
 		}
 
-		if (state.is(Blocks.LECTERN) && !state.getValue(LecternBlock.HAS_BOOK)) {
-			if (!level.isClientSide) {
-				ItemStack copy = player.isCreative() ? stack.copy() : stack.split(1);
-				LecternBlock.tryPlaceBook(player, level, pos, state, copy);
-			}
-			return InteractionResult.SUCCESS;
-		}
-
-		// Ключевой момент: если не по спецблоку, пробуем обычное использование (ПКМ по воздуху)
 		return this.use(level, player, ctx.getHand()).getResult();
 	}
 
@@ -82,21 +84,18 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 
 		if (player.isShiftKeyDown() && hand == InteractionHand.MAIN_HAND) {
 			if (!level.isClientSide && player instanceof ServerPlayer sp) {
-				net.minecraftforge.network.NetworkHooks.openScreen(sp, this, buf -> buf.writeItem(stack));
+				NetworkHooks.openScreen(sp, this, buf -> buf.writeItem(stack));
 			}
 			return InteractionResultHolder.success(stack);
 		}
 
 		if (!player.isShiftKeyDown()) {
 			if (level.isClientSide)
-				net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(
-						net.minecraftforge.api.distmarker.Dist.CLIENT,
-						() -> () -> LinkedControllerClientHandler.toggle()
-				);
-			player.getCooldowns().addCooldown(this, 2); // 2, как в Create
+				DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> LinkedControllerClientHandler::toggle);
+			player.getCooldowns().addCooldown(this, 2);
 		}
 
-		return InteractionResultHolder.pass(stack); // ВАЖНО: именно pass
+		return InteractionResultHolder.pass(stack);
 	}
 
 	@Override
@@ -125,19 +124,15 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	}
 
 	/**
-	 * Возвращает частотную пару для данного логического слота (0..11) контроллера.
-	 * ВАЖНО: Возвращает оригинальные ItemStack с их количеством и NBT — поведение полностью как у RedstoneLink.
+	 * Возвращает Couple<ItemStack> для передачи в сетевые обработчики (по Create).
 	 */
-	public static FrequencyPair slotToFrequency(ItemStack controller, int logicalSlot) {
+	public static Couple<ItemStack> toFrequency(ItemStack controller, int logicalSlot) {
 		ItemStackHandler inv = getFrequencyInventory(controller);
 		int aIdx = logicalSlot * 2;
 		int bIdx = aIdx + 1;
 		ItemStack a = inv.getStackInSlot(aIdx);
 		ItemStack b = inv.getStackInSlot(bIdx);
-		// --- ВАЖНО: возвращаем ItemStack с их count и NBT! ---
-		FrequencyPair pair = FrequencyPair.of(a, b);
-		LOGGER.info("[slotToFrequency] logicalSlot={}, stackA={}, stackB={}, pair={}", logicalSlot, a, b, pair);
-		return pair;
+		return Couple.of(a, b);
 	}
 
 	@OnlyIn(Dist.CLIENT)
@@ -151,35 +146,5 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 				return renderer;
 			}
 		});
-	}
-
-	/**
-	 * Передаёт сигнал по частоте, указанной в слоте контроллера.
-	 * @param level уровень
-	 * @param playerId UUID игрока
-	 * @param slotLogical логический слот (0..11)
-	 * @param pressed состояние нажатия (true/false)
-	 * @param heldPos позиция (обычно player.blockPosition() или lectern)
-	 */
-	public static void transmitPressedKeys(Level level, UUID playerId, int slotLogical, boolean pressed, BlockPos heldPos) {
-		ItemStack controller = new ItemStack(ModItems.LINKED_CONTROLLER.get());
-		ItemStackHandler inv = getFrequencyInventory(controller);
-		int aIdx = slotLogical * 2;
-		int bIdx = aIdx + 1;
-		ItemStack a = inv.getStackInSlot(aIdx);
-		ItemStack b = inv.getStackInSlot(bIdx);
-
-		if (a.isEmpty() && b.isEmpty())
-			return;
-
-		Couple<ItemStack> couple = Couple.of(a, b);
-
-		LOGGER.info("[transmitPressedKeys] level={}, playerId={}, slotLogical={}, pressed={}, heldPos={}, couple={}",
-				level, playerId, slotLogical, pressed, heldPos, couple);
-
-		// Sticky: сразу выставляем powered всем receiver по этой частоте
-		LinkedControllerServerHandler.setReceiversPowered(
-				level, List.of(couple), pressed, playerId
-		);
 	}
 }

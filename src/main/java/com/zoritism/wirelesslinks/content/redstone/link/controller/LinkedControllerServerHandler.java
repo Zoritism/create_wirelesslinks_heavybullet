@@ -2,48 +2,138 @@ package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
 import com.zoritism.wirelesslinks.content.redstone.link.LinkHandler;
 import com.zoritism.wirelesslinks.util.Couple;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
 import java.util.*;
+import java.util.Map.Entry;
 import java.util.UUID;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
- * Теперь серверная обработка работает как виртуальный transmitter в LinkHandler.
- * Сброс/установка сигнала по частоте происходит через setVirtualTransmitter/removeVirtualTransmitter.
+ * Серверная логика Linked Controller теперь полностью повторяет механику Create:
+ * - Сигналы держатся TIMEOUT тиков после последнего нажатия/обновления.
+ * - Каждая кнопка/канал = ManualFrequencyEntry, обновляется при нажатии, сбрасывается по таймеру.
+ * - tick() вызывается каждый серверный тик, чтобы очищать "залипшие" сигналы.
  */
 public class LinkedControllerServerHandler {
 
-	private static final Logger LOGGER = LogManager.getLogger();
+	public static final int TIMEOUT = 30;
+
+	/** Map: UUID игрока -> список ManualFrequencyEntry (активные каналы контроллера) */
+	private static final Map<UUID, Collection<ManualFrequencyEntry>> receivedInputs = new HashMap<>();
 
 	/**
-	 * Вызывается при получении сигнала с контроллера.
-	 * Для каждой частоты регистрирует или удаляет виртуальный transmitter для игрока.
-	 * Сигнал не залипает: если нет активного transmitter (контроллера или блока), сигнал сбрасывается.
+	 * Обновление состояний сигналов контроллеров.
+	 * Вызывать в серверном тике (ServerTickEvent, либо world.tick()).
 	 */
-	public static void setReceiversPowered(Level level, List<Couple<ItemStack>> frequencies, boolean powered, UUID playerId) {
-		if (level == null || frequencies == null || frequencies.isEmpty() || playerId == null)
+	public static void tick(Level level) {
+		Iterator<Entry<UUID, Collection<ManualFrequencyEntry>>> mainIt = receivedInputs.entrySet().iterator();
+		while (mainIt.hasNext()) {
+			Entry<UUID, Collection<ManualFrequencyEntry>> entry = mainIt.next();
+			Collection<ManualFrequencyEntry> list = entry.getValue();
+
+			Iterator<ManualFrequencyEntry> subIt = list.iterator();
+			while (subIt.hasNext()) {
+				ManualFrequencyEntry freqEntry = subIt.next();
+				freqEntry.decrement();
+				if (!freqEntry.isAlive()) {
+					LinkHandler.get(level).removeVirtualTransmitter(freqEntry.getFrequency(), entry.getKey());
+					subIt.remove();
+				}
+			}
+
+			if (list.isEmpty())
+				mainIt.remove();
+		}
+	}
+
+	/**
+	 * Приходит при нажатии или отпускании кнопки на контроллере.
+	 * - pressed=true: обновляет/создаёт ManualFrequencyEntry (продлевает таймер)
+	 * - pressed=false: вручную сбрасывает таймер в 0 (моментальный сброс)
+	 */
+	public static void receivePressed(Level level, BlockPos pos, UUID playerId, List<Couple<ItemStack>> frequencies, boolean pressed) {
+		if (level == null || playerId == null || frequencies == null)
 			return;
-		LinkHandler handler = LinkHandler.get(level);
-		for (Couple<ItemStack> freq : frequencies) {
-			if (powered) {
-				handler.setVirtualTransmitter(freq, playerId, 15);
-				LOGGER.info("[LinkedControllerServerHandler][setReceiversPowered] freq={}, player={}, powered=ON", freq, playerId);
-			} else {
-				handler.removeVirtualTransmitter(freq, playerId);
-				LOGGER.info("[LinkedControllerServerHandler][setReceiversPowered] freq={}, player={}, powered=OFF", freq, playerId);
+
+		Collection<ManualFrequencyEntry> list = receivedInputs.computeIfAbsent(playerId, $ -> new ArrayList<>());
+
+		WithNext:
+		for (Couple<ItemStack> activated : frequencies) {
+			for (ManualFrequencyEntry entry : list) {
+				if (entry.getFrequency().equals(activated)) {
+					if (!pressed) {
+						entry.setTimeout(0);
+						LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
+					} else {
+						entry.updatePosition(pos);
+						entry.setTimeout(TIMEOUT);
+						LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);
+					}
+					continue WithNext;
+				}
+			}
+
+			if (!pressed)
+				continue;
+
+			ManualFrequencyEntry entry = new ManualFrequencyEntry(pos, activated, TIMEOUT);
+			list.add(entry);
+			LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);
+		}
+	}
+
+	/**
+	 * Удалить все сигналы игрока (вызывать при дисконнекте/смерти/выбросе контроллера и т.д.)
+	 */
+	public static void removeAllInputs(Level level, UUID playerId) {
+		Collection<ManualFrequencyEntry> list = receivedInputs.remove(playerId);
+		if (list != null) {
+			for (ManualFrequencyEntry entry : list) {
+				LinkHandler.get(level).removeVirtualTransmitter(entry.getFrequency(), playerId);
 			}
 		}
 	}
 
 	/**
-	 * Удаляет все виртуальные передатчики для игрока (вызывать при смерти, дисконнекте...).
+	 * ManualFrequencyEntry — активный канал контроллера.
+	 * Аналогичен ManualFrequencyEntry в Create.
 	 */
-	public static void removeAllReceiversFor(Level level, UUID playerId) {
-		if (level == null || playerId == null)
-			return;
-		LinkHandler.get(level).removeAllVirtualTransmittersFor(playerId);
+	public static class ManualFrequencyEntry {
+		private int timeout;
+		private final Couple<ItemStack> frequency;
+		private BlockPos pos;
+
+		public ManualFrequencyEntry(BlockPos pos, Couple<ItemStack> frequency, int timeout) {
+			this.pos = pos;
+			this.frequency = frequency;
+			this.timeout = timeout;
+		}
+
+		public void updatePosition(BlockPos pos) {
+			this.pos = pos;
+		}
+
+		public void decrement() {
+			if (timeout > 0)
+				timeout--;
+		}
+
+		public boolean isAlive() {
+			return timeout > 0;
+		}
+
+		public void setTimeout(int timeout) {
+			this.timeout = timeout;
+		}
+
+		public Couple<ItemStack> getFrequency() {
+			return frequency;
+		}
+
+		public BlockPos getPosition() {
+			return pos;
+		}
 	}
 }
