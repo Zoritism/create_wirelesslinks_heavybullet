@@ -44,9 +44,7 @@ public class LinkedControllerClientHandler {
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
 	private static boolean f5Pressed = false;
-
-	// --- Сохраняем частоты, которые были активны при входе в ACTIVE ---
-	private static List<Couple<ItemStack>> lastActiveFrequencies = new ArrayList<>();
+	private static ItemStack lastHeldController = ItemStack.EMPTY; // Для детектирования смены предмета в руке
 
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
@@ -69,7 +67,6 @@ public class LinkedControllerClientHandler {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = null;
-			storeActiveFrequencies();
 			LOGGER.info("[Client] toggle: Switched to ACTIVE mode");
 		} else {
 			MODE = Mode.IDLE;
@@ -82,7 +79,6 @@ public class LinkedControllerClientHandler {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = lecternAt;
-			storeActiveFrequencies();
 			LOGGER.info("[Client] activateInLectern: Activated in lectern at {}", lecternAt);
 		}
 	}
@@ -100,10 +96,6 @@ public class LinkedControllerClientHandler {
 	}
 
 	protected static void onReset() {
-		// 1. Если были нажаты каналы — отправить powered=false для всех!
-		if (!currentlyPressed.isEmpty()) {
-			sendChannelsResetPacket();
-		}
 		Vector<KeyMapping> controls = DefaultControls.getControls();
 		for (KeyMapping mapping : controls) {
 			try {
@@ -115,54 +107,7 @@ public class LinkedControllerClientHandler {
 		lecternPos = null;
 		currentlyPressed.clear();
 		f5Pressed = false;
-		lastActiveFrequencies.clear();
-		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared, lastActiveFrequencies cleared)");
-	}
-
-	/**
-	 * Перед входом в ACTIVE режим сохраняем частоты, чтобы потом сбросить сигналы даже если предмет будет выброшен
-	 */
-	private static void storeActiveFrequencies() {
-		Minecraft mc = Minecraft.getInstance();
-		LocalPlayer player = mc.player;
-		if (player == null) {
-			lastActiveFrequencies = new ArrayList<>();
-			return;
-		}
-		ItemStack heldItem = player.getMainHandItem();
-		if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-			heldItem = player.getOffhandItem();
-		}
-		if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
-			lastActiveFrequencies = new ArrayList<>();
-			return;
-		}
-		ItemStackHandler inv = LinkedControllerItem.getFrequencyInventory(heldItem);
-		List<Couple<ItemStack>> freq = new ArrayList<>();
-		int slotCount = 12; // 6 пар частот
-		for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
-			int aIdx = logicalSlot * 2;
-			int bIdx = aIdx + 1;
-			ItemStack a = inv.getStackInSlot(aIdx);
-			ItemStack b = inv.getStackInSlot(bIdx);
-			if (!a.isEmpty() || !b.isEmpty()) {
-				freq.add(Couple.of(a.copy(), b.copy()));
-			}
-		}
-		lastActiveFrequencies = freq;
-	}
-
-	/**
-	 * Отправляет powered=false для всех каналов, которые были зажаты, используя lastActiveFrequencies
-	 */
-	private static void sendChannelsResetPacket() {
-		if (lastActiveFrequencies.isEmpty()) return;
-		for (Integer channel : currentlyPressed) {
-			if (channel >= 0 && channel < lastActiveFrequencies.size()) {
-				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(List.of(channel), false));
-				LOGGER.info("[Client] [RESET] Sent powered:false for channel {} freq={}", channel, lastActiveFrequencies.get(channel));
-			}
-		}
+		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared)");
 	}
 
 	@SubscribeEvent
@@ -223,6 +168,7 @@ public class LinkedControllerClientHandler {
 			onReset();
 			LOGGER.info("[Client] Lost controller in hand or changed item, switched to IDLE mode and reset");
 		}
+		lastHeldController = isController ? held : ItemStack.EMPTY;
 		// Остальной тик-логика
 		tick();
 	}
