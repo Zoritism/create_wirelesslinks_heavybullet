@@ -63,8 +63,6 @@ public class PartialItemModelRenderer {
 		ms.pushPose();
 		ms.translate(-0.5D, -0.5D, -0.5D);
 
-		// Исправление: всегда использовать оригинальный model, а не stack.getItem().getRenderer()
-		// иначе кастомный рендер может не вызываться
 		if (!model.isCustomRenderer()) {
 			VertexConsumer vc = ItemRenderer.getFoilBufferDirect(buffer, type, true, stack.hasFoil());
 			for (BakedModel pass : model.getRenderPasses(stack, false)) {

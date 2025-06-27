@@ -17,8 +17,8 @@ public abstract class CustomRenderedItemModelRenderer extends BlockEntityWithout
 	@Override
 	public void renderByItem(ItemStack stack, ItemDisplayContext transformType, PoseStack ms, MultiBufferSource buffer, int light, int overlay) {
 		CustomRenderedItemModel mainModel = (CustomRenderedItemModel) Minecraft.getInstance()
-			.getItemRenderer()
-			.getModel(stack, null, null, 0);
+				.getItemRenderer()
+				.getModel(stack, null, null, 0);
 		PartialItemModelRenderer renderer = PartialItemModelRenderer.of(stack, transformType, ms, buffer, overlay);
 
 		ms.pushPose();
@@ -28,6 +28,6 @@ public abstract class CustomRenderedItemModelRenderer extends BlockEntityWithout
 	}
 
 	protected abstract void render(ItemStack stack, CustomRenderedItemModel model, PartialItemModelRenderer renderer, ItemDisplayContext transformType,
-		PoseStack ms, MultiBufferSource buffer, int light, int overlay);
+								   PoseStack ms, MultiBufferSource buffer, int light, int overlay);
 
 }

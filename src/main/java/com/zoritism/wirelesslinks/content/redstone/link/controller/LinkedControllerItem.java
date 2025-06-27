@@ -138,7 +138,13 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	@OnlyIn(Dist.CLIENT)
 	@Override
 	public void initializeClient(Consumer<IClientItemExtensions> consumer) {
-		// Используем паттерн оригинала Create: регистрация через SimpleCustomRenderer
-		consumer.accept(com.zoritism.wirelesslinks.foundation.item.SimpleCustomRenderer.create(this, new LinkedControllerItemRenderer()));
+		consumer.accept(new IClientItemExtensions() {
+			private final LinkedControllerItemRenderer renderer = new LinkedControllerItemRenderer();
+
+			@Override
+			public net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer getCustomRenderer() {
+				return renderer;
+			}
+		});
 	}
 }
