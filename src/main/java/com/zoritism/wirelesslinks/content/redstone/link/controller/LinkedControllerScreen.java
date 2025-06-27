@@ -95,11 +95,13 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 			if (slot.container != menu.ghostInventory)
 				continue;
 			ItemStack stack = slot.getItem();
-			if (!stack.isEmpty() && showCount) {
+			if (!stack.isEmpty()) {
 				int xPos = slot.x + leftPos;
 				int yPos = slot.y + topPos;
-				String count = String.valueOf(stack.getCount());
-				graphics.drawString(mc.font, count, xPos + 17 - mc.font.width(count), yPos + 9, 0xFFFFFF, true);
+				if (showCount) {
+					String count = String.valueOf(stack.getCount());
+					graphics.drawString(mc.font, count, xPos + 17 - mc.font.width(count), yPos + 9, 0xFFFFFF, true);
+				}
 			}
 		}
 	}
