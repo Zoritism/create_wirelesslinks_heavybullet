@@ -62,6 +62,9 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
         user = tag.hasUUID("User") ? tag.getUUID("User") : null;
     }
 
+    /**
+     * Получить предмет контроллера, лежащий в лекторне. Полностью копирует NBT.
+     */
     public ItemStack getController() {
         if (controllerNbt == null || controllerNbt.isEmpty())
             return ItemStack.EMPTY;
@@ -70,6 +73,9 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
         return stack;
     }
 
+    /**
+     * Установить контроллер с NBT в лекторн.
+     */
     public void setController(ItemStack newController) {
         if (newController != null && newController.getItem() == ModItems.LINKED_CONTROLLER.get()) {
             controllerNbt = newController.hasTag() ? newController.getTag().copy() : new CompoundTag();
@@ -85,11 +91,17 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
         return hasUser() && user.equals(player.getUUID());
     }
 
+    /**
+     * Начать использование контроллера через лекторн (если никто не использует).
+     */
     public void tryStartUsing(Player player) {
         if (!deactivatedThisTick && !hasUser() && playerInRange(player, level, worldPosition))
             startUsing(player);
     }
 
+    /**
+     * Прекратить использование контроллера через лекторн.
+     */
     public void tryStopUsing(Player player) {
         if (isUsedBy(player))
             stopUsing(player);
@@ -144,13 +156,19 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
     @OnlyIn(Dist.CLIENT)
     private void tryToggleActive() {
         Player clientPlayer = net.minecraft.client.Minecraft.getInstance().player;
+        // Если пользователь закончился (был активен только что) — деактивируем на клиенте
         if (user == null && clientPlayer != null && clientPlayer.getUUID().equals(prevUser)) {
             LinkedControllerClientHandler.deactivateInLectern();
-        } else if (prevUser == null && clientPlayer != null && clientPlayer.getUUID().equals(user)) {
+        }
+        // Если только что появился пользователь — активируем на клиенте
+        else if (user != null && prevUser == null && clientPlayer != null && clientPlayer.getUUID().equals(user)) {
             LinkedControllerClientHandler.activateInLectern(worldPosition);
         }
     }
 
+    /**
+     * Извлечь контроллер из лекторна и выбросить в мир (с сохранением NBT).
+     */
     public void dropController(BlockState state) {
         if (controllerNbt == null || controllerNbt.isEmpty())
             return;
@@ -175,6 +193,9 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
         sendData();
     }
 
+    /**
+     * Проверка дистанции игрока до лекторна (по ForgeMod.BLOCK_REACH).
+     */
     public static boolean playerInRange(Player player, Level world, BlockPos pos) {
         double reach = 0.4 * player.getAttributeValue(ForgeMod.BLOCK_REACH.get());
         return player.distanceToSqr(Vec3.atCenterOf(pos)) < reach * reach;

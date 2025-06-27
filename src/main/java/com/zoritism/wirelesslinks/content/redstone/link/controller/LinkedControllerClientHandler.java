@@ -120,7 +120,7 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		if (MODE == Mode.ACTIVE && isControllerInEitherHand()) {
+		if (MODE == Mode.ACTIVE && (isControllerInEitherHand() || inLectern())) {
 			Vector<KeyMapping> controls = DefaultControls.getControls();
 			for (int i = 0; i < controls.size(); i++) {
 				KeyMapping mapping = controls.get(i);
@@ -161,17 +161,18 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		boolean isController = isControllerInEitherHand();
-		if (MODE == Mode.ACTIVE && !isController) {
+		boolean hasController = isControllerInEitherHand();
+		boolean hasLectern = inLectern();
+		if (MODE == Mode.ACTIVE && !hasController && !hasLectern) {
 			MODE = Mode.IDLE;
 			onReset();
 		}
-		if (MODE == Mode.ACTIVE && !hasControllerAnywhere(player)) {
+		if (MODE == Mode.ACTIVE && !hasControllerAnywhere(player) && !hasLectern) {
 			MODE = Mode.IDLE;
 			onReset();
 		}
 
-		lastHeldController = isController ? getControllerFromEitherHand(player) : ItemStack.EMPTY;
+		lastHeldController = hasController ? getControllerFromEitherHand(player) : ItemStack.EMPTY;
 		LinkedControllerItemRenderer.tick();
 		tick();
 	}
@@ -205,6 +206,16 @@ public class LinkedControllerClientHandler {
 	private static void sendControlChannelPacket(int channel, boolean pressed) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
+
+		// Если активен режим через лекторн — отправляем с позицией лекторна
+		if (inLectern()) {
+			ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
+					List.of(channel), pressed, lecternPos
+			));
+			return;
+		}
+
+		// Иначе обычная логика предмета
 		if (player != null) {
 			ItemStack heldItem = player.getMainHandItem();
 			if (!heldItem.is(ModItems.LINKED_CONTROLLER.get())) {
@@ -229,7 +240,11 @@ public class LinkedControllerClientHandler {
 	public static void tick() {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
-		if (MODE != Mode.ACTIVE || !isControllerInEitherHand())
+
+		boolean activeViaLectern = inLectern();
+		boolean activeViaItem = isControllerInEitherHand();
+
+		if (MODE != Mode.ACTIVE || (!activeViaItem && !activeViaLectern))
 			return;
 		if (packetCooldown > 0)
 			packetCooldown--;
@@ -240,11 +255,14 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		ItemStack heldItem = getControllerFromEitherHand(player);
-		if (heldItem.isEmpty()) {
-			MODE = Mode.IDLE;
-			onReset();
-			return;
+		// Если активен через лекторн — не проверяем предмет в руке
+		if (!activeViaLectern) {
+			ItemStack heldItem = getControllerFromEitherHand(player);
+			if (heldItem.isEmpty()) {
+				MODE = Mode.IDLE;
+				onReset();
+				return;
+			}
 		}
 
 		if (mc.screen != null || InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_ESCAPE)) {
@@ -268,6 +286,15 @@ public class LinkedControllerClientHandler {
 	public static void sendTestPacket(boolean powered) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
+
+		// Через лекторн — отправляем всегда с позицией лекторна
+		if (inLectern()) {
+			ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
+					List.of(0, 1, 2, 3, 4, 5), powered, lecternPos
+			));
+			return;
+		}
+
 		if (player != null) {
 			ItemStack heldItem = getControllerFromEitherHand(player);
 			if (heldItem.isEmpty()) {

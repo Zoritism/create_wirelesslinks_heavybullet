@@ -9,6 +9,8 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.Direction;
 
 /**
  * Рендерит Linked Controller на LecternControllerBlock.
@@ -25,11 +27,27 @@ public class LecternControllerRenderer implements BlockEntityRenderer<LecternCon
         if (controller.isEmpty())
             return;
 
-        // Положение контроллера на лекторне — смещение и поворот
+        BlockState state = be.getBlockState();
+        Direction facing = Direction.NORTH;
+        if (state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING))
+            facing = state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING);
+
         ps.pushPose();
-        ps.translate(0.5, 1.05, 0.5); // чуть выше центра блока
-        ps.scale(1.1f, 1.1f, 1.1f);
+
+        // Смещение в центр + чуть выше, чтобы контроллер лежал на лекторне
+        ps.translate(0.5, 1.02, 0.5);
+
+        // Поворот по facing, чтобы контроллер был ориентирован правильно
+        switch (facing) {
+            case SOUTH -> ps.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180));
+            case WEST -> ps.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90));
+            case EAST -> ps.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-90));
+            default -> { }
+        }
+
+        // Лежит на поверхности
         ps.mulPose(com.mojang.math.Axis.XP.rotationDegrees(90));
+        ps.scale(1.07f, 1.07f, 1.07f);
 
         // Используем custom renderer из LinkedControllerItemRenderer
         CustomRenderedItemModel model = (CustomRenderedItemModel) Minecraft.getInstance()

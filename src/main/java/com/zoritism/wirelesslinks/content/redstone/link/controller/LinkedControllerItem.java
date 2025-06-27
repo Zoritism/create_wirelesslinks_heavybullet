@@ -19,7 +19,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -68,7 +67,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		}
 
 		// ПКМ по ванильному лекторну (без книги) — заменяем на свой лекторн через блок
-		if (state.is(Blocks.LECTERN) && !state.getValue(net.minecraft.world.level.block.LecternBlock.HAS_BOOK)) {
+		if (state.is(net.minecraft.world.level.block.Blocks.LECTERN) && !state.getValue(net.minecraft.world.level.block.LecternBlock.HAS_BOOK)) {
 			if (!level.isClientSide) {
 				ItemStack stack = player.isCreative() ? ctx.getItemInHand().copy() : ctx.getItemInHand().split(1);
 				// Меняем на свой лекторн

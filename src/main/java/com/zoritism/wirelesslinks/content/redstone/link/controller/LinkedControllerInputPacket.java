@@ -69,8 +69,27 @@ public class LinkedControllerInputPacket extends LinkedControllerPacketBase impl
     protected void handleLectern(ServerPlayer player, Object lecternGeneric) {
         if (!(lecternGeneric instanceof LecternControllerBlockEntity lectern))
             return;
-        if (lectern.isUsedBy(player))
-            handleItem(player, lectern.getController());
+        if (lectern.isUsedBy(player)) {
+            // Вместо handleItem, берём контент из лекторна, но pos для сигнала — это сам лекторн!
+            ItemStack controllerStack = lectern.getController();
+            Level world = player.level();
+            UUID uniqueID = player.getUUID();
+            BlockPos pos = lectern.getBlockPos(); // именно позиция лекторна
+            if (player.isSpectator() && press)
+                return;
+            ItemStackHandler inv = LinkedControllerItem.getFrequencyInventory(controllerStack);
+            List<Couple<ItemStack>> frequencies = new ArrayList<>();
+            for (int i : activatedButtons) {
+                int aIdx = i * 2;
+                int bIdx = aIdx + 1;
+                ItemStack a = inv.getStackInSlot(aIdx);
+                ItemStack b = inv.getStackInSlot(bIdx);
+                if (!a.isEmpty() || !b.isEmpty()) {
+                    frequencies.add(Couple.of(a, b));
+                }
+            }
+            LinkedControllerServerHandler.receivePressed(world, pos, uniqueID, frequencies, press);
+        }
     }
 
     @Override

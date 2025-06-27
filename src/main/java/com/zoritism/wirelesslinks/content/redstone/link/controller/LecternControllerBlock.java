@@ -56,32 +56,35 @@ public class LecternControllerBlock extends Block implements EntityBlock {
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                  InteractionHand hand, BlockHitResult hit) {
-        if (level.isClientSide)
-            return InteractionResult.SUCCESS;
 
         BlockEntity be = level.getBlockEntity(pos);
         if (!(be instanceof LecternControllerBlockEntity lectern))
             return InteractionResult.PASS;
 
         ItemStack held = player.getItemInHand(hand);
+        ItemStack lecternController = lectern.getController();
 
-        // 1. Вставить контроллер в лекторн (если его нет)
-        if (lectern.getController().isEmpty() && held.is(ModItems.LINKED_CONTROLLER.get())) {
-            ItemStack insert = player.isCreative() ? held.copy() : held.split(1);
-            lectern.setController(insert);
-            lectern.sendData();
+        // 1. Вставить контроллер в лекторн (если его нет) - только сервер!
+        if (lecternController.isEmpty() && held.is(ModItems.LINKED_CONTROLLER.get())) {
+            if (!level.isClientSide) {
+                ItemStack insert = player.isCreative() ? held.copy() : held.split(1);
+                lectern.setController(insert);
+                lectern.sendData();
+            }
             return InteractionResult.SUCCESS;
         }
 
         // 2. CTRL+ПКМ (извлечь контроллер)
-        if (player.isShiftKeyDown() && !lectern.getController().isEmpty()) {
-            lectern.dropController(state);
-            lectern.sendData();
+        if (player.isShiftKeyDown() && !lecternController.isEmpty()) {
+            if (!level.isClientSide) {
+                lectern.dropController(state);
+                lectern.sendData();
+            }
             return InteractionResult.SUCCESS;
         }
 
         // 3. ПКМ — активировать управление (если контроллер уже есть)
-        if (!lectern.getController().isEmpty()) {
+        if (!lecternController.isEmpty()) {
             if (!level.isClientSide)
                 lectern.tryStartUsing(player);
             // На клиенте сразу активируем режим управления (через ClientHandler)
@@ -142,7 +145,6 @@ public class LecternControllerBlock extends Block implements EntityBlock {
     }
 
     @OnlyIn(Dist.CLIENT)
-
     public boolean shouldDisplayFluidOverlay(BlockState state, BlockGetter world, BlockPos pos, net.minecraft.world.level.material.FluidState fluidState) {
         return false;
     }
