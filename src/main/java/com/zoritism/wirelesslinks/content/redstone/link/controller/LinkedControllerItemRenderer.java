@@ -24,7 +24,8 @@ import net.minecraft.world.item.ItemStack;
 
 public class LinkedControllerItemRenderer extends CustomRenderedItemModelRenderer {
 
-	protected static final ResourceLocation POWERED = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/powered");
+	// Измени имя модели
+	protected static final ResourceLocation POWERED = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller_powered");
 	protected static final ResourceLocation BUTTON = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/button");
 
 	static LerpedFloat equipProgress;
@@ -37,9 +38,6 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 			buttons.add(LerpedFloat.linear().startWithValue(0));
 	}
 
-	/**
-	 * Добавьте этот вызов в ClientInit.init(), чтобы гарантировать подгрузку класса
-	 */
 	public static void ensureClientHandlerLoaded() {
 		// Просто статический вызов, чтобы триггерить загрузку класса и регистрацию событий
 	}
@@ -120,7 +118,6 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 					active = true;
 			}
 
-			// powered теперь зависит от: режим ACTIVE и есть нажатые кнопки
 			powered = LinkedControllerClientHandler.MODE == Mode.ACTIVE &&
 					!LinkedControllerClientHandler.currentlyPressed.isEmpty();
 			renderDepression = true;
