@@ -11,15 +11,14 @@ import net.minecraft.world.level.LevelAccessor;
 import java.util.*;
 
 /**
- * Серверная логика Linked Controller максимально по Create, но с нашими частотами Couple<ItemStack>.
+ * Серверная логика Linked Controller в точности по принципу Create:
  * - Сигналы держатся пока кнопка удерживается (pressed=true), сбрасываются только по отпусканию или если pressed=true перестал приходить (таймаут).
  * - Таймаут уменьшается только если pressed=true не пришло ни разу за тик; если пришло - таймаут сбрасывается.
- * - Только release или истечение таймаута сбрасывает сигнал и виртуальный передатчик.
+ * - Только отпускание или истечение таймаута сбрасывает сигнал и виртуальный передатчик.
  * - Используется WorldAttached для правильной работы в мульти-мире.
  */
 public class LinkedControllerServerHandler {
 
-	// Таймаут в тиках (1.5 секунды при 20 TPS)
 	public static final int TIMEOUT = 30;
 
 	/**
@@ -28,35 +27,25 @@ public class LinkedControllerServerHandler {
 	private static final WorldAttached<Map<UUID, Collection<ManualFrequencyEntry>>> receivedInputs =
 			new WorldAttached<>($ -> new HashMap<>());
 
-	/**
-	 * Для отслеживания "держится ли кнопка в этом тике" для каждой частоты (playerId -> freq -> heldThisTick)
-	 */
-	private static final WorldAttached<Map<UUID, Map<Couple<ItemStack>, Boolean>>> heldThisTick =
-			new WorldAttached<>($ -> new HashMap<>());
-
 	public static void tick(LevelAccessor world) {
 		Map<UUID, Collection<ManualFrequencyEntry>> map = receivedInputs.get(world);
-		Map<UUID, Map<Couple<ItemStack>, Boolean>> heldMap = heldThisTick.get(world);
-
 		Iterator<Map.Entry<UUID, Collection<ManualFrequencyEntry>>> mainIt = map.entrySet().iterator();
 		while (mainIt.hasNext()) {
 			Map.Entry<UUID, Collection<ManualFrequencyEntry>> entry = mainIt.next();
 			UUID playerId = entry.getKey();
 			Collection<ManualFrequencyEntry> list = entry.getValue();
 
-			Map<Couple<ItemStack>, Boolean> heldForPlayer = heldMap.getOrDefault(playerId, Collections.emptyMap());
-
 			Iterator<ManualFrequencyEntry> subIt = list.iterator();
 			while (subIt.hasNext()) {
 				ManualFrequencyEntry freqEntry = subIt.next();
 
-				// Если канал был активен в этом тике (pressed=true), сбрасываем таймаут
-				boolean held = heldForPlayer.getOrDefault(freqEntry.getFrequency(), false);
-				if (held) {
+				// Если за этот тик не было обновления позиции (pressed=true), уменьшаем таймаут
+				if (freqEntry.updatedThisTick) {
 					freqEntry.setTimeout(TIMEOUT);
 				} else {
 					freqEntry.decrement();
 				}
+				freqEntry.updatedThisTick = false;
 
 				if (!freqEntry.isAlive()) {
 					if (world instanceof Level level) {
@@ -69,8 +58,6 @@ public class LinkedControllerServerHandler {
 			if (list.isEmpty())
 				mainIt.remove();
 		}
-		// Очищаем heldThisTick на следующий тик (иначе "зависшие" каналы не выключатся)
-		heldMap.clear();
 	}
 
 	/**
@@ -85,9 +72,6 @@ public class LinkedControllerServerHandler {
 		Map<UUID, Collection<ManualFrequencyEntry>> map = receivedInputs.get(world);
 		Collection<ManualFrequencyEntry> list = map.computeIfAbsent(playerId, $ -> new ArrayList<>());
 
-		Map<UUID, Map<Couple<ItemStack>, Boolean>> heldMap = heldThisTick.get(world);
-		Map<Couple<ItemStack>, Boolean> heldForPlayer = heldMap.computeIfAbsent(playerId, $ -> new HashMap<>());
-
 		for (Couple<ItemStack> activated : frequencies) {
 			ManualFrequencyEntry matched = null;
 			for (ManualFrequencyEntry entry : list) {
@@ -97,13 +81,14 @@ public class LinkedControllerServerHandler {
 				}
 			}
 			if (pressed) {
-				heldForPlayer.put(activated, true);
 				if (matched != null) {
-					// Обновляем позицию
+					// Обновляем позицию и отмечаем, что сигнал держится в этом тике
 					matched.updatePosition(pos);
+					matched.updatedThisTick = true;
 				} else {
 					// Если нет такой записи, создаём новую и включаем сигнал
 					ManualFrequencyEntry entry = new ManualFrequencyEntry(pos, activated, TIMEOUT);
+					entry.updatedThisTick = true;
 					list.add(entry);
 				}
 				// В любом случае поддерживаем виртуальный передатчик активным
@@ -121,8 +106,6 @@ public class LinkedControllerServerHandler {
 					LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
 					LinkHandler.get(level).refreshChannel(activated);
 				}
-				// Удаляем состояние held для этого канала (на случай release)
-				heldForPlayer.remove(activated);
 			}
 		}
 	}
@@ -139,8 +122,6 @@ public class LinkedControllerServerHandler {
 				LinkHandler.get(level).refreshChannel(entry.getFrequency());
 			}
 		}
-		Map<UUID, Map<Couple<ItemStack>, Boolean>> heldMap = heldThisTick.get(world);
-		heldMap.remove(playerId);
 	}
 
 	/**
@@ -150,6 +131,7 @@ public class LinkedControllerServerHandler {
 		private int timeout;
 		private final Couple<ItemStack> frequency;
 		private BlockPos pos;
+		private boolean updatedThisTick = false;
 
 		public ManualFrequencyEntry(BlockPos pos, Couple<ItemStack> frequency, int timeout) {
 			this.pos = pos;
