@@ -116,8 +116,8 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 					active = true;
 			}
 
-			powered = LinkedControllerClientHandler.MODE == Mode.ACTIVE &&
-					!LinkedControllerClientHandler.currentlyPressed.isEmpty();
+			// powered теперь определяется только по NBT
+			powered = stack.hasTag() && stack.getTag().getBoolean("Powered");
 			renderDepression = true;
 		}
 

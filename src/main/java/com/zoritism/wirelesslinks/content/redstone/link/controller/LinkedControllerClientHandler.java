@@ -109,6 +109,7 @@ public class LinkedControllerClientHandler {
 		lecternPos = null;
 		f5Pressed = false;
 		LinkedControllerItemRenderer.resetButtons();
+		updateControllerPoweredTag(false);
 	}
 
 	@SubscribeEvent
@@ -153,6 +154,7 @@ public class LinkedControllerClientHandler {
 								}
 							}
 						}
+						updateControllerPoweredTag(!currentlyPressed.isEmpty());
 					}
 					return;
 				}
@@ -358,6 +360,21 @@ public class LinkedControllerClientHandler {
 
 		graphics.renderComponentTooltip(mc.font, list, x, y);
 		poseStack.popPose();
+	}
+
+	private static void updateControllerPoweredTag(boolean powered) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player == null) return;
+		for (ItemStack stack : new ItemStack[]{mc.player.getMainHandItem(), mc.player.getOffhandItem()}) {
+			if (stack.is(ModItems.LINKED_CONTROLLER.get())) {
+				if (powered) {
+					stack.getOrCreateTag().putBoolean("Powered", true);
+				} else {
+					if (stack.hasTag())
+						stack.getTag().remove("Powered");
+				}
+			}
+		}
 	}
 
 	public enum Mode {
