@@ -106,7 +106,7 @@ public class LinkedControllerClientHandler {
 		lecternPos = null;
 		f5Pressed = false;
 		LinkedControllerItemRenderer.resetButtons();
-		updateControllerPoweredTag(false);
+		updateControllerPoweredTag(false, true); // << force redraw
 	}
 
 	@SubscribeEvent
@@ -140,7 +140,7 @@ public class LinkedControllerClientHandler {
 					}
 
 					if (changed) {
-						updateControllerPoweredTag(!currentlyPressed.isEmpty());
+						updateControllerPoweredTag(!currentlyPressed.isEmpty(), true); // << force redraw
 					}
 					return;
 				}
@@ -338,8 +338,10 @@ public class LinkedControllerClientHandler {
 		poseStack.popPose();
 	}
 
-	// Главное изменение: всегда обновляем уникальный тег при любом изменении powered
-	private static void updateControllerPoweredTag(boolean powered) {
+	/**
+	 * Обновляет тег Powered и принудительно сбрасывает кэш модели, если forceRedraw=true
+	 */
+	private static void updateControllerPoweredTag(boolean powered, boolean forceRedraw) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null) return;
 		for (ItemStack stack : new ItemStack[]{mc.player.getMainHandItem(), mc.player.getOffhandItem()}) {
@@ -350,10 +352,16 @@ public class LinkedControllerClientHandler {
 					if (stack.hasTag())
 						stack.getTag().remove("Powered");
 				}
-				// ВСЕГДА обновляем уникальный тег: это заставляет MC пересоздать визуализацию
-				stack.getOrCreateTag().putLong("wl_force_redraw", System.nanoTime());
+				if (forceRedraw) {
+					stack.getOrCreateTag().putLong("ModelKey", System.nanoTime());
+				}
 			}
 		}
+	}
+
+	// Для совместимости со старым кодом, где updateControllerPoweredTag вызывался без forceRedraw
+	private static void updateControllerPoweredTag(boolean powered) {
+		updateControllerPoweredTag(powered, false);
 	}
 
 	public enum Mode {
