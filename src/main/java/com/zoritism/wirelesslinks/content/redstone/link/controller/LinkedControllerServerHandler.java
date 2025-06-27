@@ -12,9 +12,9 @@ import java.util.UUID;
 
 /**
  * Серверная логика Linked Controller теперь полностью повторяет механику Create:
- * - Сигналы держатся TIMEOUT тиков после последнего нажатия/обновления.
- * - Каждая кнопка/канал = ManualFrequencyEntry, обновляется при нажатии, сбрасывается по таймеру.
- * - tick() вызывается каждый серверный тик, чтобы очищать "залипшие" сигналы.
+ * - Сигналы держатся только пока кнопка удерживается (pressed=true), сбрасываются мгновенно при отпускании (pressed=false).
+ * - Каждая кнопка/канал = ManualFrequencyEntry, обновляется при нажатии, удаляется при отпускании.
+ * - tick() вызывается только для очистки залипших сигналов при обрыве соединения (если release-пакет не пришёл).
  */
 public class LinkedControllerServerHandler {
 
@@ -26,6 +26,7 @@ public class LinkedControllerServerHandler {
 	/**
 	 * Обновление состояний сигналов контроллеров.
 	 * Вызывать в серверном тике (ServerTickEvent, либо world.tick()).
+	 * Очищает "залипшие" сигналы (например, если release-пакет не пришёл вообще).
 	 */
 	public static void tick(Level level) {
 		Iterator<Entry<UUID, Collection<ManualFrequencyEntry>>> mainIt = receivedInputs.entrySet().iterator();
@@ -50,8 +51,8 @@ public class LinkedControllerServerHandler {
 
 	/**
 	 * Приходит при нажатии или отпускании кнопки на контроллере.
-	 * - pressed=true: обновляет/создаёт ManualFrequencyEntry (продлевает таймер)
-	 * - pressed=false: вручную сбрасывает таймер в 0 (моментальный сброс)
+	 * - pressed=true: создаёт ManualFrequencyEntry (если нет), включает сигнал и устанавливает TIMEOUT.
+	 * - pressed=false: немедленно удаляет запись (и выключает сигнал).
 	 */
 	public static void receivePressed(Level level, BlockPos pos, UUID playerId, List<Couple<ItemStack>> frequencies, boolean pressed) {
 		if (level == null || playerId == null || frequencies == null)
@@ -61,12 +62,16 @@ public class LinkedControllerServerHandler {
 
 		WithNext:
 		for (Couple<ItemStack> activated : frequencies) {
-			for (ManualFrequencyEntry entry : list) {
+			Iterator<ManualFrequencyEntry> it = list.iterator();
+			while (it.hasNext()) {
+				ManualFrequencyEntry entry = it.next();
 				if (entry.getFrequency().equals(activated)) {
 					if (!pressed) {
-						entry.setTimeout(0);
+						// Сброс сигнала: удаляем entry и снимаем виртуальный передатчик
 						LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
+						it.remove();
 					} else {
+						// Обновляем позицию и таймер (если вдруг пришло повторное нажатие)
 						entry.updatePosition(pos);
 						entry.setTimeout(TIMEOUT);
 						LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);
@@ -78,6 +83,7 @@ public class LinkedControllerServerHandler {
 			if (!pressed)
 				continue;
 
+			// Если нет такой записи, создаём новую и включаем сигнал
 			ManualFrequencyEntry entry = new ManualFrequencyEntry(pos, activated, TIMEOUT);
 			list.add(entry);
 			LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);

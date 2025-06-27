@@ -31,6 +31,10 @@ import net.minecraftforge.items.ItemStackHandler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * Клиентская логика контроллера: управление сигналом строго по событиям PRESS/RELEASE, без тиковой "коррекции".
+ * Это поведение полностью как в Create: сигнал держится только пока реально удерживается кнопка.
+ */
 @Mod.EventBusSubscriber(modid = "wirelesslinks", value = Dist.CLIENT)
 public class LinkedControllerClientHandler {
 
@@ -269,6 +273,7 @@ public class LinkedControllerClientHandler {
 			sendTestPacket(true);
 			packetCooldown = PACKET_RATE;
 		}
+		// ---- УБРАНА любая тик-логика по отпусканию! ----
 	}
 
 	public static void sendTestPacket(boolean powered) {
