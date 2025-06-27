@@ -47,6 +47,8 @@ public class LinkedControllerServerHandler {
 				if (!freqEntry.isAlive()) {
 					// Удаляем сигнал и виртуальный передатчик, если не был продлён вовремя
 					LinkHandler.get(level).removeVirtualTransmitter(freqEntry.getFrequency(), entry.getKey());
+					// ВАЖНО: обновляем канал — чтобы Redstone Link сбросил сигнал!
+					LinkHandler.get(level).refreshChannel(freqEntry.getFrequency());
 					subIt.remove();
 				}
 			}
@@ -76,6 +78,8 @@ public class LinkedControllerServerHandler {
 					ManualFrequencyEntry entry = it.next();
 					if (entry.getFrequency().equals(activated)) {
 						LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
+						// ВАЖНО: обновляем канал — чтобы Redstone Link сбросил сигнал!
+						LinkHandler.get(level).refreshChannel(activated);
 						it.remove();
 						found = true;
 					}
@@ -83,6 +87,7 @@ public class LinkedControllerServerHandler {
 				if (!found) {
 					// Если не нашли ManualFrequencyEntry (например, истёк timeout), всё равно удаляем виртуальный передатчик!
 					LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
+					LinkHandler.get(level).refreshChannel(activated);
 				}
 			}
 			return;
@@ -117,6 +122,7 @@ public class LinkedControllerServerHandler {
 		if (list != null) {
 			for (ManualFrequencyEntry entry : list) {
 				LinkHandler.get(level).removeVirtualTransmitter(entry.getFrequency(), playerId);
+				LinkHandler.get(level).refreshChannel(entry.getFrequency());
 			}
 		}
 	}
