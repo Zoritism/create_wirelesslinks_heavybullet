@@ -24,6 +24,14 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
+/**
+ * Полностью корректная реализация скрытия количества в ghost-слотах:
+ * - Если ctrl НЕ зажат, count=1 (или 0 для пустого) перед рендером vanilla,
+ *   чтобы стандартный рендер не показывал число.
+ * - Если ctrl зажат, count=реальное значение, а поверх рисуем своё число.
+ * - Откат count после рендера, чтобы не поломать сохранение.
+ * - Никаких побочных эффектов для ghostInventory.
+ */
 public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedControllerMenu> {
 
 	protected AllGuiTextures background;
@@ -31,6 +39,10 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 
 	private IconButton resetButton;
 	private IconButton confirmButton;
+
+	private static final int GHOST_SLOTS = 12;
+	// Для каждого ghost-слота храним backup реального значения count
+	private final int[] backupCounts = new int[GHOST_SLOTS];
 
 	public LinkedControllerScreen(LinkedControllerMenu menu, Inventory inv, Component title) {
 		super(menu, inv, title);
@@ -64,10 +76,11 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		extraAreas = ImmutableList.of(new Rect2i(x + background.getWidth() + 4, y + background.getHeight() - 44, 64, 56));
 	}
 
-	// --- ВАЖНО: Подменяем count только для ghost-слотов ---
-	private final int GHOST_SLOTS = 12;
-	private int[] realCounts = new int[GHOST_SLOTS];
-
+	/**
+	 * Перед рендером vanilla слотов подменяет count в ghost-слотах:
+	 * - если ctrl НЕ зажат, ставит count=1 (или 0 если пустой)
+	 * - если ctrl зажат, возвращает реальное значение
+	 */
 	private void patchGhostCountsForVanillaRender(boolean ctrlDown) {
 		for (Slot slot : this.menu.slots) {
 			if (slot.index < 0 || slot.index >= GHOST_SLOTS)
@@ -76,21 +89,19 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 				continue;
 			ItemStack stack = slot.getItem();
 			if (!stack.isEmpty()) {
-				if (!ctrlDown) {
-					// Сохраним реальное значение
-					realCounts[slot.index] = stack.getCount();
+				int idx = slot.index;
+				backupCounts[idx] = stack.getCount();
+				if (!ctrlDown && stack.getCount() != 1)
 					stack.setCount(1);
-				} else {
-					// Вернуть реальное значение (если отличается)
-					int real = realCounts[slot.index];
-					if (real > 1 && stack.getCount() != real) {
-						stack.setCount(real);
-					}
-				}
+				else if (ctrlDown && stack.getCount() != backupCounts[idx])
+					stack.setCount(backupCounts[idx]);
 			}
 		}
 	}
 
+	/**
+	 * После рендера возвращает реальное значение count в ghost-слотах.
+	 */
 	private void restoreGhostCounts() {
 		for (Slot slot : this.menu.slots) {
 			if (slot.index < 0 || slot.index >= GHOST_SLOTS)
@@ -98,10 +109,9 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 			if (slot.container != menu.ghostInventory)
 				continue;
 			ItemStack stack = slot.getItem();
-			int real = realCounts[slot.index];
-			if (!stack.isEmpty() && real > 0 && stack.getCount() != real) {
-				stack.setCount(real);
-			}
+			int idx = slot.index;
+			if (!stack.isEmpty() && stack.getCount() != backupCounts[idx])
+				stack.setCount(backupCounts[idx]);
 		}
 	}
 
@@ -111,6 +121,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		patchGhostCountsForVanillaRender(ctrlDown);
 		try {
 			super.render(graphics, mouseX, mouseY, partialTicks);
+			// Важно: рисуем цифры только если ctrlDown, но только если количество > 1
 			if (ctrlDown) {
 				renderGhostSlotCounts(graphics, mouseX, mouseY);
 			}
@@ -139,7 +150,10 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		//     .render(graphics);
 	}
 
-	// Кастомный рендер количества предметов в ghost-слотах (только если зажат CTRL)
+	/**
+	 * Кастомный рендер количества предметов в ghost-слотах (только если ctrlDown).
+	 * Показываем count только если > 1 (как в Minecraft).
+	 */
 	protected void renderGhostSlotCounts(GuiGraphics graphics, int mouseX, int mouseY) {
 		Minecraft mc = Minecraft.getInstance();
 		for (Slot slot : this.menu.slots) {
@@ -147,11 +161,13 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 				continue;
 			if (slot.container != menu.ghostInventory)
 				continue;
+			int idx = slot.index;
 			ItemStack stack = slot.getItem();
-			if (!stack.isEmpty() && realCounts[slot.index] > 1) {
+			int realCount = backupCounts[idx];
+			if (!stack.isEmpty() && realCount > 1) {
 				int xPos = slot.x + leftPos;
 				int yPos = slot.y + topPos;
-				String count = String.valueOf(realCounts[slot.index]);
+				String count = String.valueOf(realCount);
 				graphics.drawString(mc.font, count, xPos + 17 - mc.font.width(count), yPos + 9, 0xFFFFFF, true);
 			}
 		}
