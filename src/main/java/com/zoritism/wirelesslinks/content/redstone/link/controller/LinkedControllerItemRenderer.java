@@ -24,7 +24,8 @@ import net.minecraft.world.item.ItemStack;
 
 public class LinkedControllerItemRenderer extends CustomRenderedItemModelRenderer {
 
-	protected static final ResourceLocation POWERED = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller_powered");
+	protected static final ResourceLocation POWERED = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/powered");
+	protected static final ResourceLocation BASE = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/item");
 	protected static final ResourceLocation BUTTON = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/button");
 
 	static LerpedFloat equipProgress;
@@ -120,9 +121,9 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 			renderDepression = true;
 		}
 
-		BakedModel base = powered
-				? Minecraft.getInstance().getModelManager().getModel(POWERED)
-				: model.getOriginalModel();
+		BakedModel base = Minecraft.getInstance().getModelManager().getModel(
+				powered ? POWERED : BASE
+		);
 		renderer.render(base, light);
 
 		if (!active && !powered) {

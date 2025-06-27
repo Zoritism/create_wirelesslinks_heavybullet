@@ -1,9 +1,9 @@
 {
 	"credit": "Made with Blockbench",
-	"parent": "wirelesslinks:item/linked_controller/powered",
+	"parent": "create:item/linked_controller/powered",
 	"textures": {
-		"particle": "wirelesslinks:item/linked_controller",
-		"redstone_bridge": "wirelesslinks:item/linked_controller"
+		"particle": "create:item/linked_controller",
+		"redstone_bridge": "create:item/linked_controller"
 	},
 	"elements": [
 		{
