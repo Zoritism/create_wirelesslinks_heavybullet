@@ -20,6 +20,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
@@ -30,16 +31,19 @@ import javax.annotation.Nullable;
 
 public class LecternControllerBlock extends Block implements EntityBlock {
 
+    // Используем HORIZONTAL_FACING вместо FACING для совместимости с vanilla Lectern
+    public static final DirectionProperty HORIZONTAL_FACING = BlockStateProperties.HORIZONTAL_FACING;
+
     public LecternControllerBlock(Properties props) {
         super(props);
         registerDefaultState(defaultBlockState()
                 .setValue(BlockStateProperties.POWERED, false)
-                .setValue(BlockStateProperties.FACING, Direction.NORTH));
+                .setValue(HORIZONTAL_FACING, Direction.NORTH));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(BlockStateProperties.POWERED, BlockStateProperties.FACING);
+        builder.add(BlockStateProperties.POWERED, HORIZONTAL_FACING);
     }
 
     @Override
@@ -113,7 +117,7 @@ public class LecternControllerBlock extends Block implements EntityBlock {
     @Override
     public void neighborChanged(BlockState state, Level level, BlockPos pos,
                                 Block block, BlockPos fromPos, boolean isMoving) {
-        // Если потребуется реакция на сигнал/энергию — добавь тут
+        // Реакция на сигнал/энергию при необходимости
     }
 
     @Override
@@ -133,8 +137,8 @@ public class LecternControllerBlock extends Block implements EntityBlock {
 
     // Для корректного взаимодействия с ItemEntity при извлечении контроллера
     protected void spawnAsEntity(Level level, BlockPos pos, ItemStack stack, BlockState state) {
-        Direction dir = state.hasProperty(BlockStateProperties.FACING)
-                ? state.getValue(BlockStateProperties.FACING)
+        Direction dir = state.hasProperty(HORIZONTAL_FACING)
+                ? state.getValue(HORIZONTAL_FACING)
                 : Direction.NORTH;
         double x = pos.getX() + 0.5 + 0.25 * dir.getStepX();
         double y = pos.getY() + 1;

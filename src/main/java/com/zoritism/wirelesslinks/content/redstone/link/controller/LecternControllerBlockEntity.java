@@ -161,7 +161,7 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
             LinkedControllerClientHandler.deactivateInLectern();
         }
         // Если только что появился пользователь — активируем на клиенте
-        else if (user != null && prevUser == null && clientPlayer != null && clientPlayer.getUUID().equals(user)) {
+        else if (user != null && (prevUser == null || !user.equals(prevUser)) && clientPlayer != null && clientPlayer.getUUID().equals(user)) {
             LinkedControllerClientHandler.activateInLectern(worldPosition);
         }
     }
@@ -180,9 +180,16 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
         if (playerEntity instanceof Player)
             stopUsing((Player) playerEntity);
 
-        Direction dir = state.hasProperty(BlockStateProperties.FACING)
-                ? state.getValue(BlockStateProperties.FACING)
-                : Direction.NORTH;
+        // Исправлено: используем HORIZONTAL_FACING для корректного направления
+        Direction dir = null;
+        if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
+            dir = state.getValue(BlockStateProperties.HORIZONTAL_FACING);
+        } else if (state.hasProperty(BlockStateProperties.FACING)) {
+            dir = state.getValue(BlockStateProperties.FACING);
+        } else {
+            dir = Direction.NORTH;
+        }
+
         double x = worldPosition.getX() + 0.5 + 0.25 * dir.getStepX();
         double y = worldPosition.getY() + 1;
         double z = worldPosition.getZ() + 0.5 + 0.25 * dir.getStepZ();

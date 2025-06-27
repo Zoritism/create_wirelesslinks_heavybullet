@@ -13,8 +13,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.core.Direction;
 
 /**
- * Рендерит Linked Controller на LecternControllerBlock.
- * Аналогично Create, использует custom renderer предмета.
+ * Рендерит Linked Controller на LecternControllerBlock аналогично Create.
+ * Использует custom renderer предмета и позиционирует контроллер-книгу на лекторне.
  */
 public class LecternControllerRenderer implements BlockEntityRenderer<LecternControllerBlockEntity> {
 
@@ -29,38 +29,47 @@ public class LecternControllerRenderer implements BlockEntityRenderer<LecternCon
 
         BlockState state = be.getBlockState();
         Direction facing = Direction.NORTH;
-        if (state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING))
-            facing = state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING);
+        // Используем horizontal_facing для корректного поворота, как в Create
+        if (state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING))
+            facing = state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING);
 
         ps.pushPose();
 
-        // Смещение в центр + чуть выше, чтобы контроллер лежал на лекторне
-        ps.translate(0.5, 1.02, 0.5);
-
-        // Поворот по facing, чтобы контроллер был ориентирован правильно
-        switch (facing) {
-            case SOUTH -> ps.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180));
-            case WEST -> ps.mulPose(com.mojang.math.Axis.YP.rotationDegrees(90));
-            case EAST -> ps.mulPose(com.mojang.math.Axis.YP.rotationDegrees(-90));
-            default -> { }
-        }
-
-        // Лежит на поверхности
-        ps.mulPose(com.mojang.math.Axis.XP.rotationDegrees(90));
-        ps.scale(1.07f, 1.07f, 1.07f);
+        // Позиционирование и наклон контроллера-книги на лекторне (по образцу Create)
+        ps.translate(0.5, 1.45, 0.5);
+        ps.mulPose(com.mojang.math.Axis.YP.rotationDegrees(horizontalAngle(facing) - 90));
+        ps.translate(0.28, 0, 0);
+        ps.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-22.0f));
 
         // Используем custom renderer из LinkedControllerItemRenderer
         CustomRenderedItemModel model = (CustomRenderedItemModel) Minecraft.getInstance()
-                .getItemRenderer().getModel(controller, null, null, 0);
+                .getItemRenderer().getModel(controller, be.getLevel(), null, 0);
 
         PartialItemModelRenderer renderer = PartialItemModelRenderer.of(controller,
-                ItemDisplayContext.FIXED, ps, buf, overlay);
+                ItemDisplayContext.NONE, ps, buf, overlay);
 
-        // Отрисовываем item как на лекторне
+        // Определяем активность и депрессию (нажатие) по LecternControllerBlockEntity
+        boolean active = be.hasUser();
+        boolean renderDepression = false;
+        if (Minecraft.getInstance().player != null) {
+            renderDepression = be.isUsedBy(Minecraft.getInstance().player);
+        }
+
         LinkedControllerItemRenderer.renderInLectern(
-                controller, model, renderer, ItemDisplayContext.FIXED, ps, light, true, false
+                controller, model, renderer, ItemDisplayContext.NONE, ps, light, active, renderDepression
         );
 
         ps.popPose();
+    }
+
+    // Вспомогательный метод для угла поворота по горизонтали (аналог AngleHelper.horizontalAngle)
+    private static float horizontalAngle(Direction facing) {
+        return switch (facing) {
+            case NORTH -> 180f;
+            case EAST -> -90f;
+            case SOUTH -> 0f;
+            case WEST -> 90f;
+            default -> 0f;
+        };
     }
 }
