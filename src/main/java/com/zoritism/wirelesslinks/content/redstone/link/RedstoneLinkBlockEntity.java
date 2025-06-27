@@ -14,10 +14,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-/**
- * Минималистичная реализация RedstoneLinkBlockEntity, максимально приближённая к Create.
- * Без логирования.
- */
 public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLinkable {
 
 	private boolean receivedSignalChanged;
@@ -175,7 +171,7 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			receivedSignalChanged = true;
 			tick(); // сразу обновить POWERED и соседей
 		} else {
-			// ВАЖНО: даже если сигнал не изменился, если power == 0 и block всё ещё POWERED, форсируем обновление!
+			// Даже если сигнал не изменился, если power == 0 и блок всё ещё POWERED, форсируем обновление!
 			if (power == 0) {
 				BlockState state = getBlockState();
 				if (state.hasProperty(RedstoneLinkBlock.POWERED) && state.getValue(RedstoneLinkBlock.POWERED)) {
