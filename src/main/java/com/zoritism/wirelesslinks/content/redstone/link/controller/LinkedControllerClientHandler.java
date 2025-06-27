@@ -166,6 +166,11 @@ public class LinkedControllerClientHandler {
 		}
 
 		lastHeldController = isController ? getControllerFromEitherHand(player) : ItemStack.EMPTY;
+
+		// === ДОБАВЛЕНО: вызывать тик рендера контроллера ===
+		LinkedControllerItemRenderer.tick();
+		// === КОНЕЦ ДОБАВЛЕНИЯ ===
+
 		tick();
 	}
 
