@@ -63,15 +63,19 @@ public class PartialItemModelRenderer {
 		ms.pushPose();
 		ms.translate(-0.5D, -0.5D, -0.5D);
 
+		// Исправление: всегда использовать оригинальный model, а не stack.getItem().getRenderer()
+		// иначе кастомный рендер может не вызываться
 		if (!model.isCustomRenderer()) {
 			VertexConsumer vc = ItemRenderer.getFoilBufferDirect(buffer, type, true, stack.hasFoil());
 			for (BakedModel pass : model.getRenderPasses(stack, false)) {
 				renderBakedItemModel(pass, light, ms, vc);
 			}
-		} else
-			IClientItemExtensions.of(stack)
-					.getCustomRenderer()
-					.renderByItem(stack, transformType, ms, buffer, light, overlay);
+		} else {
+			IClientItemExtensions custom = IClientItemExtensions.of(stack);
+			if (custom.getCustomRenderer() != null) {
+				custom.getCustomRenderer().renderByItem(stack, transformType, ms, buffer, light, overlay);
+			}
+		}
 
 		ms.popPose();
 	}
