@@ -2,7 +2,7 @@ package com.zoritism.wirelesslinks.registry;
 
 import com.zoritism.wirelesslinks.WirelessLinksMod;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkBlockEntity;
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkBlock;
+import com.zoritism.wirelesslinks.content.redstone.link.controller.LecternControllerBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
@@ -18,6 +18,14 @@ public class ModBlockEntities {
                     () -> BlockEntityType.Builder.of(
                             RedstoneLinkBlockEntity::new,
                             ModBlocks.REDSTONE_LINK.get()
+                    ).build(null));
+
+    // Регистрация LecternControllerBlockEntity с правильным конструктором
+    public static final RegistryObject<BlockEntityType<LecternControllerBlockEntity>> LECTERN_CONTROLLER =
+            BLOCK_ENTITIES.register("lectern_controller",
+                    () -> BlockEntityType.Builder.of(
+                            (pos, state) -> new LecternControllerBlockEntity(ModBlockEntities.LECTERN_CONTROLLER.get(), pos, state),
+                            ModBlocks.LECTERN_CONTROLLER.get()
                     ).build(null));
 
     public static void register(IEventBus bus) {

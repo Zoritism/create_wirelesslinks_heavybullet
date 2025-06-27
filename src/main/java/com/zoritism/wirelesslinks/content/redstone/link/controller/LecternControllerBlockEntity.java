@@ -25,9 +25,6 @@ import net.minecraftforge.fml.DistExecutor;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Аналог Create: SmartBlockEntity для контроллера в лектюрне
- */
 public class LecternControllerBlockEntity extends SmartBlockEntity {
 
     private CompoundTag controllerNbt = new CompoundTag();
@@ -61,17 +58,23 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
     @Override
     protected void read(CompoundTag tag, boolean clientPacket) {
         super.read(tag, clientPacket);
-        // Миграция, если есть старый тег
-        if (tag.contains("Controller")) {
-            controllerNbt = ItemStack.of(tag.getCompound("Controller")).getTag();
-        } else {
-            controllerNbt = tag.getCompound("ControllerData");
-        }
+        controllerNbt = tag.getCompound("ControllerData");
         user = tag.hasUUID("User") ? tag.getUUID("User") : null;
     }
 
     public ItemStack getController() {
-        return createLinkedController();
+        if (controllerNbt == null || controllerNbt.isEmpty())
+            return ItemStack.EMPTY;
+        ItemStack stack = new ItemStack(ModItems.LINKED_CONTROLLER.get());
+        stack.setTag(controllerNbt.copy());
+        return stack;
+    }
+
+    public void setController(ItemStack newController) {
+        if (newController != null && newController.getItem() == ModItems.LINKED_CONTROLLER.get()) {
+            controllerNbt = newController.hasTag() ? newController.getTag().copy() : new CompoundTag();
+            sendData();
+        }
     }
 
     public boolean hasUser() {
@@ -83,7 +86,7 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
     }
 
     public void tryStartUsing(Player player) {
-        if (!deactivatedThisTick && !hasUser() && !playerIsUsingLectern(player) && playerInRange(player, level, worldPosition))
+        if (!deactivatedThisTick && !hasUser() && playerInRange(player, level, worldPosition))
             startUsing(player);
     }
 
@@ -148,50 +151,32 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
         }
     }
 
-    public void setController(ItemStack newController) {
-        if (newController != null) {
-            controllerNbt = newController.getOrCreateTag();
-            // TODO: Play sound here if needed
-        }
-    }
-
-    public void swapControllers(ItemStack stack, Player player, InteractionHand hand, BlockState state) {
-        ItemStack newController = stack.copy();
-        stack.setCount(0);
-        if (player.getItemInHand(hand).isEmpty()) {
-            player.setItemInHand(hand, createLinkedController());
-        } else {
-            dropController(state);
-        }
-        setController(newController);
-    }
-
     public void dropController(BlockState state) {
-        Entity playerEntity = ((ServerLevel) level).getEntity(user);
+        if (controllerNbt == null || controllerNbt.isEmpty())
+            return;
+
+        Entity playerEntity = null;
+        if (level instanceof ServerLevel serverLevel && user != null) {
+            playerEntity = serverLevel.getEntity(user);
+        }
         if (playerEntity instanceof Player)
             stopUsing((Player) playerEntity);
 
-        // Используйте FACING property блока, если реализован ваш лекторн, иначе временно NORTH
         Direction dir = state.hasProperty(BlockStateProperties.FACING)
                 ? state.getValue(BlockStateProperties.FACING)
                 : Direction.NORTH;
         double x = worldPosition.getX() + 0.5 + 0.25 * dir.getStepX();
         double y = worldPosition.getY() + 1;
         double z = worldPosition.getZ() + 0.5 + 0.25 * dir.getStepZ();
-        ItemEntity itementity = new ItemEntity(level, x, y, z, createLinkedController());
-        itementity.setDefaultPickUpDelay();
-        level.addFreshEntity(itementity);
+        ItemEntity itemEntity = new ItemEntity(level, x, y, z, getController());
+        itemEntity.setDefaultPickUpDelay();
+        level.addFreshEntity(itemEntity);
         controllerNbt = new CompoundTag();
+        sendData();
     }
 
     public static boolean playerInRange(Player player, Level world, BlockPos pos) {
         double reach = 0.4 * player.getAttributeValue(ForgeMod.BLOCK_REACH.get());
         return player.distanceToSqr(Vec3.atCenterOf(pos)) < reach * reach;
-    }
-
-    private ItemStack createLinkedController() {
-        ItemStack stack = new ItemStack(ModItems.LINKED_CONTROLLER.get());
-        stack.setTag(controllerNbt.copy());
-        return stack;
     }
 }

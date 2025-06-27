@@ -2,6 +2,7 @@ package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkBlock;
 import com.zoritism.wirelesslinks.registry.ModItems;
+import com.zoritism.wirelesslinks.registry.ModBlocks;
 import com.zoritism.wirelesslinks.util.Couple;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -49,12 +50,34 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		BlockPos pos = ctx.getClickedPos();
 		BlockState state = level.getBlockState(pos);
 
+		// 1. Если клик по нашему LecternControllerBlock
+		if (state.getBlock() == ModBlocks.LECTERN_CONTROLLER.get()) {
+			if (!level.isClientSide) {
+				var be = level.getBlockEntity(pos);
+				if (be instanceof LecternControllerBlockEntity lectern) {
+					ItemStack lecternController = lectern.getController();
+					// a. Если лекторн пустой — вставляем контроллер
+					if (lecternController.isEmpty()) {
+						ItemStack insert = player.isCreative() ? stack.copy() : stack.split(1);
+						lectern.setController(insert);
+						lectern.sendData();
+						return InteractionResult.SUCCESS;
+					}
+					// b. Если лекторн уже содержит контроллер и игрок рядом — переходим в режим управления
+					if (!lecternController.isEmpty() && isPlayerInLecternRange(player, pos)) {
+						lectern.tryStartUsing(player);
+						return InteractionResult.SUCCESS;
+					}
+				}
+			}
+			// На клиенте не обрабатываем (всё делается через сервер)
+			return InteractionResult.SUCCESS;
+		}
+
+		// 2. Если клик по обычному редстоун линк — прежнее поведение
 		if (player.mayBuild()) {
 			if (player.isShiftKeyDown()) {
 				// Здесь мог бы быть swapControllers для лекторна, если реализовано
-				// Например:
-				// if (state.getBlock() instanceof LecternControllerBlock) { ... }
-				// В нашем случае это не реализовано, пропускаем
 			} else {
 				if (state.getBlock() instanceof RedstoneLinkBlock) {
 					if (level.isClientSide)
@@ -70,11 +93,10 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 					}
 					return InteractionResult.SUCCESS;
 				}
-
-				// Если будет свой LecternControllerBlock, можно обработать тут
 			}
 		}
 
+		// 3. Всё остальное — стандартное поведение (не переходить в режим управления!)
 		return this.use(level, player, ctx.getHand()).getResult();
 	}
 
@@ -89,6 +111,9 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 			return InteractionResultHolder.success(stack);
 		}
 
+		// --- ВНИМАНИЕ! ---
+		// Теперь переход в режим управления происходит только если НЕ целимся в лекторн!
+		// (Собственно, тут это уже не обработается, т.к. если клик был по лекторну — обработка выше.)
 		if (!player.isShiftKeyDown()) {
 			if (level.isClientSide)
 				DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> LinkedControllerClientHandler::toggle);
@@ -146,5 +171,16 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 				return renderer;
 			}
 		});
+	}
+
+	/** Проверка, находится ли игрок в квадрате 3x3 вокруг центра блока (радиус 1) */
+	private static boolean isPlayerInLecternRange(Player player, BlockPos lecternPos) {
+		double px = player.getX();
+		double py = player.getY();
+		double pz = player.getZ();
+		double cx = lecternPos.getX() + 0.5;
+		double cy = lecternPos.getY() + 0.5;
+		double cz = lecternPos.getZ() + 0.5;
+		return Math.abs(px - cx) <= 1.0 && Math.abs(py - cy) <= 1.0 && Math.abs(pz - cz) <= 1.0;
 	}
 }

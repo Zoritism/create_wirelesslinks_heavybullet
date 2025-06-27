@@ -40,7 +40,7 @@ public class LinkedControllerClientHandler {
 
 	public static Mode MODE = Mode.IDLE;
 	public static int PACKET_RATE = 5;
-	public static Collection<Integer> currentlyPressed = new HashSet<>();
+	public static final Set<Integer> currentlyPressed = new HashSet<>();
 	private static BlockPos lecternPos = null;
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
@@ -58,7 +58,6 @@ public class LinkedControllerClientHandler {
 	}
 
 	public static void toggle() {
-		// Активировать можно только если контроллер в одной из рук!
 		if (!isControllerInEitherHand()) {
 			return;
 		}
@@ -106,7 +105,7 @@ public class LinkedControllerClientHandler {
 		lecternPos = null;
 		f5Pressed = false;
 		LinkedControllerItemRenderer.resetButtons();
-		updateControllerPoweredTag(false, true); // << force redraw
+		updateControllerPoweredTag(false, true);
 	}
 
 	@SubscribeEvent
@@ -140,7 +139,7 @@ public class LinkedControllerClientHandler {
 					}
 
 					if (changed) {
-						updateControllerPoweredTag(!currentlyPressed.isEmpty(), true); // << force redraw
+						updateControllerPoweredTag(!currentlyPressed.isEmpty(), true);
 					}
 					return;
 				}
@@ -158,7 +157,6 @@ public class LinkedControllerClientHandler {
 				MODE = Mode.IDLE;
 				onReset();
 			}
-			// Даже если игрока нет, тик анимации нужен для визуализации
 			LinkedControllerItemRenderer.tick();
 			return;
 		}
@@ -201,9 +199,7 @@ public class LinkedControllerClientHandler {
 				return true;
 		}
 		ItemStack offhand = player.getOffhandItem();
-		if (offhand.is(ModItems.LINKED_CONTROLLER.get()))
-			return true;
-		return false;
+		return offhand.is(ModItems.LINKED_CONTROLLER.get());
 	}
 
 	private static void sendControlChannelPacket(int channel, boolean pressed) {
@@ -222,7 +218,6 @@ public class LinkedControllerClientHandler {
 				ItemStack a = inv.getStackInSlot(aIdx);
 				ItemStack b = inv.getStackInSlot(bIdx);
 				if (!a.isEmpty() || !b.isEmpty()) {
-					List<Couple<ItemStack>> frequencyCouples = List.of(Couple.of(a, b));
 					ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
 							List.of(channel), pressed
 					));
@@ -234,7 +229,6 @@ public class LinkedControllerClientHandler {
 	public static void tick() {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
-		// Анимация должна тикаться всегда, но остальная логика только в ACTIVE
 		if (MODE != Mode.ACTIVE || !isControllerInEitherHand())
 			return;
 		if (packetCooldown > 0)
@@ -259,7 +253,6 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		// --- Новый блок: отправка held сигналов каждый тик для всех нажатых кнопок ---
 		if (!currentlyPressed.isEmpty()) {
 			for (int i : currentlyPressed) {
 				sendControlChannelPacket(i, true);
@@ -348,9 +341,8 @@ public class LinkedControllerClientHandler {
 			if (stack.is(ModItems.LINKED_CONTROLLER.get())) {
 				if (powered) {
 					stack.getOrCreateTag().putBoolean("Powered", true);
-				} else {
-					if (stack.hasTag())
-						stack.getTag().remove("Powered");
+				} else if (stack.hasTag()) {
+					stack.getTag().remove("Powered");
 				}
 				if (forceRedraw) {
 					stack.getOrCreateTag().putLong("ModelKey", System.nanoTime());
@@ -359,7 +351,6 @@ public class LinkedControllerClientHandler {
 		}
 	}
 
-	// Для совместимости со старым кодом, где updateControllerPoweredTag вызывался без forceRedraw
 	private static void updateControllerPoweredTag(boolean powered) {
 		updateControllerPoweredTag(powered, false);
 	}

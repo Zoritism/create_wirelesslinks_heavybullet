@@ -1,7 +1,7 @@
 package com.zoritism.wirelesslinks.client;
 
-import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkBlockEntity;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkRenderer;
+import com.zoritism.wirelesslinks.content.redstone.link.controller.LecternControllerRenderer;
 import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerClientHandler;
 import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerScreen;
 import com.zoritism.wirelesslinks.registry.ModBlockEntities;
@@ -25,18 +25,19 @@ public class ClientInit {
     public static void init() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // ► экран и рендереры можем регистрировать сразу
+        // ► экраны и рендереры регистрируем здесь
         modBus.addListener((RegisterClientReloadListenersEvent e) -> {
             MenuScreens.register(ModMenus.LINKED_CONTROLLER_MENU.get(), LinkedControllerScreen::new);
             BlockEntityRenderers.register(ModBlockEntities.REDSTONE_LINK.get(), RedstoneLinkRenderer::new);
+
+            // Если у вас есть LecternControllerBlockEntity:
+            // BlockEntityRenderers.register(ModBlockEntities.LECTERN_CONTROLLER.get(), LecternControllerRenderer::new);
         });
 
-        // ► а слой рендера задаём в client-setup
+        // ► слой рендера задаём в client-setup
         modBus.addListener(ClientInit::onClientSetup);
 
         // ГАРАНТИРОВАННАЯ загрузка класса-обработчика для активации анимации контроллера
-        // Без этого @SubscribeEvent НЕ сработает и тик анимаций не будет!
-        // Можно вызвать любой статический метод, здесь просто обращение к полю
         LinkedControllerClientHandler.MODE = LinkedControllerClientHandler.MODE;
     }
 
@@ -45,9 +46,11 @@ public class ClientInit {
         event.enqueueWork(() -> {
             // сообщаем движку, что Redstone Link рендерится в слое cutout
             ItemBlockRenderTypes.setRenderLayer(
-                    ModBlocks.REDSTONE_LINK.get(),        // ваш RegistryObject<Block>
+                    ModBlocks.REDSTONE_LINK.get(),
                     RenderType.cutout()
             );
+            // Если добавится свой блок лекторна — аналогично:
+            // ItemBlockRenderTypes.setRenderLayer(ModBlocks.LECTERN_CONTROLLER.get(), RenderType.cutout());
         });
     }
 }
