@@ -58,8 +58,10 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			level.setBlockAndUpdate(worldPosition, state.setValue(RedstoneLinkBlock.POWERED, powered));
 		}
 
-		if (receivedSignalChanged)
+		if (receivedSignalChanged) {
 			propagateNeighbourUpdates(state);
+			receivedSignalChanged = false;
+		}
 	}
 
 	private boolean isTransmitterBlock() {
@@ -81,7 +83,6 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 		BlockPos back = worldPosition.relative(state.getValue(RedstoneLinkBlock.FACING).getOpposite());
 		level.blockUpdated(worldPosition, state.getBlock());
 		level.blockUpdated(back, level.getBlockState(back).getBlock());
-		receivedSignalChanged = false;
 	}
 
 	public void transmit(int strength) {
@@ -173,6 +174,15 @@ public class RedstoneLinkBlockEntity extends BlockEntity implements IRedstoneLin
 			receivedSignal = power;
 			receivedSignalChanged = true;
 			tick(); // сразу обновить POWERED и соседей
+		} else {
+			// ВАЖНО: даже если сигнал не изменился, если power == 0 и block всё ещё POWERED, форсируем обновление!
+			if (power == 0) {
+				BlockState state = getBlockState();
+				if (state.hasProperty(RedstoneLinkBlock.POWERED) && state.getValue(RedstoneLinkBlock.POWERED)) {
+					receivedSignalChanged = true;
+					tick();
+				}
+			}
 		}
 	}
 

@@ -28,18 +28,14 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.items.ItemStackHandler;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 /**
- * Клиентская логика контроллера: управление сигналом строго по событиям PRESS/RELEASE, без тиковой "коррекции".
+ * Клиентская логика контроллера: управление сигналом строго по событиям PRESS/RELEASE.
  * Теперь работает и в основной, и во второй руке!
  */
 @Mod.EventBusSubscriber(modid = "wirelesslinks", value = Dist.CLIENT)
 public class LinkedControllerClientHandler {
 
 	public static final IGuiOverlay OVERLAY = LinkedControllerClientHandler::renderOverlay;
-	private static final Logger LOGGER = LogManager.getLogger();
 
 	public static Mode MODE = Mode.IDLE;
 	public static int PACKET_RATE = 5;
@@ -48,34 +44,29 @@ public class LinkedControllerClientHandler {
 	private static BlockPos selectedLocation = BlockPos.ZERO;
 	private static int packetCooldown = 0;
 	private static boolean f5Pressed = false;
-	private static ItemStack lastHeldController = ItemStack.EMPTY; // Для детектирования смены предмета в руке
+	private static ItemStack lastHeldController = ItemStack.EMPTY;
 
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.BIND;
 			selectedLocation = location;
-			LOGGER.info("[Client] toggleBindMode: BIND mode enabled, selectedLocation={}", location);
 		} else {
 			MODE = Mode.IDLE;
 			onReset();
-			LOGGER.info("[Client] toggleBindMode: Switched to IDLE mode");
 		}
 	}
 
 	public static void toggle() {
 		// Активировать можно только если контроллер в одной из рук!
 		if (!isControllerInEitherHand()) {
-			LOGGER.info("[Client] toggle: Not held, cannot activate");
 			return;
 		}
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = null;
-			LOGGER.info("[Client] toggle: Switched to ACTIVE mode");
 		} else {
 			MODE = Mode.IDLE;
 			onReset();
-			LOGGER.info("[Client] toggle: Switched to IDLE mode");
 		}
 	}
 
@@ -83,7 +74,6 @@ public class LinkedControllerClientHandler {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.ACTIVE;
 			lecternPos = lecternAt;
-			LOGGER.info("[Client] activateInLectern: Activated in lectern at {}", lecternAt);
 		}
 	}
 
@@ -91,7 +81,6 @@ public class LinkedControllerClientHandler {
 		if (MODE == Mode.ACTIVE && inLectern()) {
 			MODE = Mode.IDLE;
 			onReset();
-			LOGGER.info("[Client] deactivateInLectern: Switched to IDLE mode from lectern");
 		}
 	}
 
@@ -100,9 +89,8 @@ public class LinkedControllerClientHandler {
 	}
 
 	protected static void onReset() {
-		// Для всех каналов, которые были нажаты, отправляем "release"
 		for (int i : currentlyPressed) {
-			sendControlChannelPacket(i, false); // отправить отпускание кнопки всем каналам
+			sendControlChannelPacket(i, false);
 		}
 		currentlyPressed.clear();
 
@@ -116,7 +104,6 @@ public class LinkedControllerClientHandler {
 		selectedLocation = BlockPos.ZERO;
 		lecternPos = null;
 		f5Pressed = false;
-		LOGGER.info("[Client] onReset: State cleared (packetCooldown=0, selectedLocation=ZERO, lecternPos=null, currentlyPressed cleared)");
 	}
 
 	@SubscribeEvent
@@ -131,14 +118,13 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		// Управление контроллером только если он в одной из рук и активен!
 		if (MODE == Mode.ACTIVE && isControllerInEitherHand()) {
 			Vector<KeyMapping> controls = DefaultControls.getControls();
 			for (int i = 0; i < controls.size(); i++) {
 				KeyMapping mapping = controls.get(i);
 				if (mapping.matches(event.getKey(), event.getScanCode())) {
 					try {
-						mapping.setDown(false); // блокируем движение!
+						mapping.setDown(false);
 					} catch (Exception ignored) {}
 
 					if (event.getAction() == GLFW.GLFW_PRESS) {
@@ -158,7 +144,6 @@ public class LinkedControllerClientHandler {
 
 	@SubscribeEvent
 	public static void onClientTick(TickEvent.ClientTickEvent event) {
-		// Проверяем каждый тик, не убрали ли контроллер из обеих рук, не сменили предмет или не выбросили контроллер
 		if (event.phase != TickEvent.Phase.END) return;
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
@@ -170,22 +155,17 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		// Проверка: был ли выброшен контроллер или сменился предмет в руках
 		boolean isController = isControllerInEitherHand();
 		if (MODE == Mode.ACTIVE && !isController) {
 			MODE = Mode.IDLE;
 			onReset();
-			LOGGER.info("[Client] Lost controller in hands or changed item, switched to IDLE mode and reset");
 		}
-		// Дополнительная проверка: если был активен и контроллер был в руках, но теперь его нет вообще в инвентаре (выброшен или убран)
 		if (MODE == Mode.ACTIVE && !hasControllerAnywhere(player)) {
 			MODE = Mode.IDLE;
 			onReset();
-			LOGGER.info("[Client] Controller no longer present anywhere in player's inventory, switched to IDLE mode and reset");
 		}
 
 		lastHeldController = isController ? getControllerFromEitherHand(player) : ItemStack.EMPTY;
-		// Остальной тик-логика
 		tick();
 	}
 
@@ -206,7 +186,6 @@ public class LinkedControllerClientHandler {
 	}
 
 	private static boolean hasControllerAnywhere(LocalPlayer player) {
-		// Проверяем наличие контроллера во всех слотах инвентаря (main, offhand, armor не требуется)
 		for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
 			ItemStack stack = player.getInventory().getItem(i);
 			if (stack.is(ModItems.LINKED_CONTROLLER.get()))
@@ -238,16 +217,12 @@ public class LinkedControllerClientHandler {
 					ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
 							List.of(channel), pressed
 					));
-					LOGGER.info("[Client] [CTRL] Channel {}: Sent powered:{} for ({}, {})", channel, pressed, a, b);
 				}
-			} else {
-				LOGGER.info("[Client] [CTRL] No linked controller in hands.");
 			}
 		}
 	}
 
 	public static void tick() {
-		// F5 работает только если контроллер в руке и активен
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
 		if (MODE != Mode.ACTIVE || !isControllerInEitherHand())
@@ -258,7 +233,6 @@ public class LinkedControllerClientHandler {
 		if (player == null || player.isSpectator()) {
 			MODE = Mode.IDLE;
 			onReset();
-			LOGGER.info("[Client] tick: Player is null or spectator, switched to IDLE and reset");
 			return;
 		}
 
@@ -266,14 +240,12 @@ public class LinkedControllerClientHandler {
 		if (heldItem.isEmpty()) {
 			MODE = Mode.IDLE;
 			onReset();
-			LOGGER.info("[Client] tick: No linked controller in hand, switched to IDLE and reset");
 			return;
 		}
 
 		if (mc.screen != null || InputConstants.isKeyDown(mc.getWindow().getWindow(), GLFW.GLFW_KEY_ESCAPE)) {
 			MODE = Mode.IDLE;
 			onReset();
-			LOGGER.info("[Client] tick: Some screen opened or ESC pressed, switched to IDLE and reset");
 			return;
 		}
 
@@ -281,21 +253,18 @@ public class LinkedControllerClientHandler {
 			sendTestPacket(true);
 			packetCooldown = PACKET_RATE;
 		}
-		// ---- УБРАНА любая тик-логика по отпусканию! ----
 	}
 
 	public static void sendTestPacket(boolean powered) {
-		LOGGER.info("[Client] F5 {}! Sending powered:{} for all channels in linked controller...", powered ? "pressed" : "released", powered);
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
 		if (player != null) {
 			ItemStack heldItem = getControllerFromEitherHand(player);
 			if (heldItem.isEmpty()) {
-				LOGGER.info("[Client] [F5] No linked controller in hand.");
 				return;
 			}
 			ItemStackHandler inv = LinkedControllerItem.getFrequencyInventory(heldItem);
-			int slotCount = 12; // 6 пар частот
+			int slotCount = 12;
 			List<Couple<ItemStack>> frequencyCouples = new ArrayList<>();
 			for (int logicalSlot = 0; logicalSlot < slotCount / 2; logicalSlot++) {
 				int aIdx = logicalSlot * 2;
@@ -304,19 +273,13 @@ public class LinkedControllerClientHandler {
 				ItemStack b = inv.getStackInSlot(bIdx);
 				if (!a.isEmpty() || !b.isEmpty()) {
 					frequencyCouples.add(Couple.of(a, b));
-					LOGGER.info("[Client] [F5] LogicalSlot {}: A={}, B={}", logicalSlot, a, b);
 				}
 			}
 			if (!frequencyCouples.isEmpty()) {
 				ModPackets.getChannel().sendToServer(new LinkedControllerInputPacket(
 						makeButtonIndices(frequencyCouples), powered
 				));
-				LOGGER.info("[Client] [F5] Sent powered:{} for {} channels", powered, frequencyCouples.size());
-			} else {
-				LOGGER.info("[Client] [F5] No frequencies set in controller, nothing sent.");
 			}
-		} else {
-			LOGGER.info("[Client] [F5] No player instance.");
 		}
 	}
 
