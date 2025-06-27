@@ -12,8 +12,7 @@ import java.util.*;
 
 /**
  * Серверная логика Linked Controller максимально по Create, но с нашими частотами Couple<ItemStack>.
- * - Сигналы держатся пока кнопка удерживается (pressed=true), сбрасываются только по отпусканию или если pressed=true перестал приходить (таймаут).
- * - Таймаут уменьшается только если pressed=true не пришло ни разу за тик; если пришло - таймаут сбрасывается.
+ * - Сигналы держатся пока кнопка удерживается (pressed=true), сбрасываются только по отпусканию или если pressed=true не пришло ни разу за тик; если пришло - таймаут сбрасывается.
  * - Только release или истечение таймаута сбрасывает сигнал и виртуальный передатчик.
  * - Используется WorldAttached для правильной работы в мульти-мире.
  */
@@ -28,20 +27,28 @@ public class LinkedControllerServerHandler {
 	private static final WorldAttached<Map<UUID, Collection<ManualFrequencyEntry>>> receivedInputs =
 			new WorldAttached<>($ -> new HashMap<>());
 
+	// Для отслеживания активных кнопок (чтобы не сбрасывать сигнал, если хотя бы одна кнопка ещё удерживается)
+	private static final WorldAttached<Map<UUID, Set<Couple<ItemStack>>>> currentlyHeld =
+			new WorldAttached<>($ -> new HashMap<>());
+
 	public static void tick(LevelAccessor world) {
 		Map<UUID, Collection<ManualFrequencyEntry>> map = receivedInputs.get(world);
+		Map<UUID, Set<Couple<ItemStack>>> heldMap = currentlyHeld.get(world);
+
 		Iterator<Map.Entry<UUID, Collection<ManualFrequencyEntry>>> mainIt = map.entrySet().iterator();
 		while (mainIt.hasNext()) {
 			Map.Entry<UUID, Collection<ManualFrequencyEntry>> entry = mainIt.next();
 			UUID playerId = entry.getKey();
 			Collection<ManualFrequencyEntry> list = entry.getValue();
 
+			Set<Couple<ItemStack>> heldFrequencies = heldMap.getOrDefault(playerId, Collections.emptySet());
+
 			Iterator<ManualFrequencyEntry> subIt = list.iterator();
 			while (subIt.hasNext()) {
 				ManualFrequencyEntry freqEntry = subIt.next();
 
-				// Если в этом тике была хотя бы одна команда pressed=true, сбрасываем таймаут на максимум
-				if (freqEntry.heldThisTick) {
+				// Если эта частота всё ещё удерживается (есть в heldFrequencies), сбрасываем таймаут
+				if (heldFrequencies.contains(freqEntry.getFrequency())) {
 					freqEntry.setTimeout(TIMEOUT);
 				} else {
 					freqEntry.decrement();
@@ -59,6 +66,8 @@ public class LinkedControllerServerHandler {
 			if (list.isEmpty())
 				mainIt.remove();
 		}
+		// Очищаем heldMap после обработки тика
+		heldMap.clear();
 	}
 
 	/**
@@ -73,6 +82,9 @@ public class LinkedControllerServerHandler {
 		Map<UUID, Collection<ManualFrequencyEntry>> map = receivedInputs.get(world);
 		Collection<ManualFrequencyEntry> list = map.computeIfAbsent(playerId, $ -> new ArrayList<>());
 
+		Map<UUID, Set<Couple<ItemStack>>> heldMap = currentlyHeld.get(world);
+		Set<Couple<ItemStack>> heldSet = heldMap.computeIfAbsent(playerId, $ -> new HashSet<>());
+
 		for (Couple<ItemStack> activated : frequencies) {
 			ManualFrequencyEntry matched = null;
 			for (ManualFrequencyEntry entry : list) {
@@ -82,6 +94,7 @@ public class LinkedControllerServerHandler {
 				}
 			}
 			if (pressed) {
+				heldSet.add(activated);
 				if (matched != null) {
 					// Обновляем позицию и отмечаем, что сигнал держится в этом тике
 					matched.updatePosition(pos);
@@ -96,20 +109,18 @@ public class LinkedControllerServerHandler {
 				if (world instanceof Level level)
 					LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);
 			} else {
-				boolean found = false;
 				if (matched != null) {
 					if (world instanceof Level level) {
 						LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
 						LinkHandler.get(level).refreshChannel(activated);
 					}
 					list.remove(matched);
-					found = true;
-				}
-				if (!found && world instanceof Level level) {
+				} else if (world instanceof Level level) {
 					// Если не нашли ManualFrequencyEntry (например, истёк timeout), всё равно обновляем канал!
 					LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
 					LinkHandler.get(level).refreshChannel(activated);
 				}
+				heldSet.remove(activated);
 			}
 		}
 	}
@@ -126,6 +137,8 @@ public class LinkedControllerServerHandler {
 				LinkHandler.get(level).refreshChannel(entry.getFrequency());
 			}
 		}
+		Map<UUID, Set<Couple<ItemStack>>> heldMap = currentlyHeld.get(world);
+		heldMap.remove(playerId);
 	}
 
 	/**
