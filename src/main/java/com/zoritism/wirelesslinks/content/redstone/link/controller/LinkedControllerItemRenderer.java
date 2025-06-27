@@ -1,10 +1,8 @@
 package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Vector;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import com.zoritism.wirelesslinks.WirelessLinksMod;
 import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerClientHandler.Mode;
 import com.zoritism.wirelesslinks.foundation.animation.AnimationTickHolder;
@@ -26,16 +24,17 @@ import net.minecraft.world.item.ItemStack;
 
 public class LinkedControllerItemRenderer extends CustomRenderedItemModelRenderer {
 
-	private static final ResourceLocation POWERED = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/powered");
-	private static final ResourceLocation BUTTON = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/button");
+	protected static final ResourceLocation POWERED = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/powered");
+	protected static final ResourceLocation BUTTON = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/button");
 
-	private static final LerpedFloat equipProgress = LerpedFloat.linear().startWithValue(0);
-	private static final List<LerpedFloat> buttons = new ArrayList<>(6);
+	static LerpedFloat equipProgress;
+	static Vector<LerpedFloat> buttons;
 
 	static {
-		for (int i = 0; i < 6; i++) {
+		equipProgress = LerpedFloat.linear().startWithValue(0);
+		buttons = new Vector<>(6);
+		for (int i = 0; i < 6; i++)
 			buttons.add(LerpedFloat.linear().startWithValue(0));
-		}
 	}
 
 	public static void tick() {
@@ -46,60 +45,80 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 		equipProgress.chase(active ? 1 : 0, .2f, Chaser.EXP);
 		equipProgress.tickChaser();
 
-		if (!active)
-			return;
-
 		for (int i = 0; i < buttons.size(); i++) {
-			LerpedFloat f = buttons.get(i);
-			f.chase(LinkedControllerClientHandler.currentlyPressed.contains(i) ? 1 : 0, .4f, Chaser.EXP);
-			f.tickChaser();
+			LerpedFloat lerpedFloat = buttons.get(i);
+			lerpedFloat.chase(LinkedControllerClientHandler.currentlyPressed.contains(i) ? 1 : 0, .4f, Chaser.EXP);
+			lerpedFloat.tickChaser();
 		}
 	}
 
 	public static void resetButtons() {
-		buttons.forEach(b -> b.startWithValue(0));
+		for (LerpedFloat button : buttons) {
+			button.startWithValue(0);
+		}
 	}
 
 	@Override
-	protected void render(ItemStack stack, CustomRenderedItemModel original, PartialItemModelRenderer pir, ItemDisplayContext ctx, PoseStack ms, MultiBufferSource buf, int light, int overlay) {
-		renderInternal(stack, original, pir, ctx, ms, light, RenderType.NORMAL, false);
+	protected void render(ItemStack stack, CustomRenderedItemModel model, PartialItemModelRenderer renderer,
+						  ItemDisplayContext transformType, PoseStack ms, MultiBufferSource buffer, int light,
+						  int overlay) {
+		renderNormal(stack, model, renderer, transformType, ms, light);
 	}
 
-	public static void renderInLectern(ItemStack stack, CustomRenderedItemModel original, PartialItemModelRenderer pir, ItemDisplayContext ctx, PoseStack ms, int light, boolean active, boolean depress) {
-		renderInternal(stack, original, pir, ctx, ms, light, RenderType.LECTERN, active);
+	protected static void renderNormal(ItemStack stack, CustomRenderedItemModel model,
+									   PartialItemModelRenderer renderer, ItemDisplayContext transformType, PoseStack ms,
+									   int light) {
+		render(stack, model, renderer, transformType, ms, light, RenderType.NORMAL, false, false);
 	}
 
-	private static void renderInternal(ItemStack stack, CustomRenderedItemModel original, PartialItemModelRenderer pir, ItemDisplayContext ctx, PoseStack ms, int light, RenderType type, boolean forceActive) {
+	public static void renderInLectern(ItemStack stack, CustomRenderedItemModel model,
+									   PartialItemModelRenderer renderer, ItemDisplayContext transformType, PoseStack ms,
+									   int light, boolean active, boolean renderDepression) {
+		render(stack, model, renderer, transformType, ms, light, RenderType.LECTERN, active, renderDepression);
+	}
+
+	protected static void render(ItemStack stack, CustomRenderedItemModel model,
+								 PartialItemModelRenderer renderer, ItemDisplayContext transformType, PoseStack ms,
+								 int light, RenderType renderType, boolean active, boolean renderDepression) {
 		float pt = AnimationTickHolder.getPartialTicks();
+
 		ms.pushPose();
 
-		boolean active = forceActive;
-		if (type == RenderType.NORMAL) {
+		if (renderType == RenderType.NORMAL) {
 			Minecraft mc = Minecraft.getInstance();
 			boolean rightHanded = mc.options.mainHand().get() == HumanoidArm.RIGHT;
-			ItemDisplayContext main = rightHanded ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
-			ItemDisplayContext off = rightHanded ? ItemDisplayContext.FIRST_PERSON_LEFT_HAND : ItemDisplayContext.FIRST_PERSON_RIGHT_HAND;
+			ItemDisplayContext mainHand =
+					rightHanded ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND : ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
+			ItemDisplayContext offHand =
+					rightHanded ? ItemDisplayContext.FIRST_PERSON_LEFT_HAND : ItemDisplayContext.FIRST_PERSON_RIGHT_HAND;
 
-			boolean noInMain = !mc.player.getMainHandItem().is(ModItems.LINKED_CONTROLLER.get());
-			if (ctx == main || (ctx == off && noInMain)) {
-				float eq = equipProgress.getValue(pt);
-				int m = ctx == ItemDisplayContext.FIRST_PERSON_LEFT_HAND ? -1 : 1;
-				ms.translate(0, eq / 4, eq / 4 * m);
-				ms.mulPose(Axis.YP.rotationDegrees(eq * -30 * m));
-				ms.mulPose(Axis.ZP.rotationDegrees(eq * -30));
+			active = false;
+			boolean noControllerInMain = !mc.player.getMainHandItem().is(ModItems.LINKED_CONTROLLER.get());
+
+			if (transformType == mainHand || (transformType == offHand && noControllerInMain)) {
+				float equip = equipProgress.getValue(pt);
+				int handModifier = transformType == ItemDisplayContext.FIRST_PERSON_LEFT_HAND ? -1 : 1;
+				ms.translate(0, equip / 4, equip / 4 * handModifier);
+				ms.mulPose(com.mojang.math.Axis.YP.rotationDegrees(equip * -30 * handModifier));
+				ms.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(equip * -30));
 				active = true;
 			}
-			if (ctx == ItemDisplayContext.GUI) {
-				if (stack == mc.player.getMainHandItem() || (stack == mc.player.getOffhandItem() && noInMain))
+
+			if (transformType == ItemDisplayContext.GUI) {
+				if (stack == mc.player.getMainHandItem())
+					active = true;
+				if (stack == mc.player.getOffhandItem() && noControllerInMain)
 					active = true;
 			}
+
 			active &= LinkedControllerClientHandler.MODE != Mode.IDLE;
+			renderDepression = true;
 		}
 
 		BakedModel base = active
 				? Minecraft.getInstance().getModelManager().getModel(POWERED)
-				: original.getOriginalModel();
-		pir.render(base, light);
+				: model.getOriginalModel();
+		renderer.render(base, light);
 
 		if (!active) {
 			ms.popPose();
@@ -107,47 +126,48 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 		}
 
 		BakedModel button = Minecraft.getInstance().getModelManager().getModel(BUTTON);
-		float s = 1 / 16f, depress = s * -.75f;
-
-		if (type == RenderType.NORMAL && LinkedControllerClientHandler.MODE == Mode.BIND) {
-			int i = (int) Mth.lerp((Mth.sin(AnimationTickHolder.getRenderTime() / 4f) + 1) / 2, 5, 15);
-			light = i << 20;
-		}
-
-		renderButtonGrid(pir, ms, light, pt, button, depress);
-		ms.popPose();
-	}
-
-	private static void renderButtonGrid(PartialItemModelRenderer pir, PoseStack ms, int light, float pt, BakedModel button, float depress) {
 		float s = 1 / 16f;
-		int idx = 0;
+		float b = s * -.75f;
+		int index = 0;
+
+		if (renderType == RenderType.NORMAL) {
+			if (LinkedControllerClientHandler.MODE == Mode.BIND) {
+				int i = (int) Mth.lerp((Mth.sin(AnimationTickHolder.getRenderTime() / 4f) + 1) / 2, 5, 15);
+				light = i << 20;
+			}
+		}
 
 		ms.pushPose();
 		ms.translate(2 * s, 0, 8 * s);
-		renderButton(pir, ms, light, pt, button, depress, idx++);
+		renderButton(renderer, ms, light, pt, button, b, index++, renderDepression);
 		ms.translate(4 * s, 0, 0);
-		renderButton(pir, ms, light, pt, button, depress, idx++);
+		renderButton(renderer, ms, light, pt, button, b, index++, renderDepression);
 		ms.translate(-2 * s, 0, 2 * s);
-		renderButton(pir, ms, light, pt, button, depress, idx++);
+		renderButton(renderer, ms, light, pt, button, b, index++, renderDepression);
 		ms.translate(0, 0, -4 * s);
-		renderButton(pir, ms, light, pt, button, depress, idx++);
+		renderButton(renderer, ms, light, pt, button, b, index++, renderDepression);
 		ms.popPose();
 
 		ms.translate(3 * s, 0, 3 * s);
-		renderButton(pir, ms, light, pt, button, depress, idx++);
+		renderButton(renderer, ms, light, pt, button, b, index++, renderDepression);
 		ms.translate(2 * s, 0, 0);
-		renderButton(pir, ms, light, pt, button, depress, idx);
-	}
+		renderButton(renderer, ms, light, pt, button, b, index++, renderDepression);
 
-	private static void renderButton(PartialItemModelRenderer pir, PoseStack ms, int light, float pt, BakedModel button, float depress, int idx) {
-		ms.pushPose();
-		float d = depress * buttons.get(idx).getValue(pt);
-		ms.translate(0, d, 0);
-		pir.renderSolid(button, light);
 		ms.popPose();
 	}
 
-	private enum RenderType {
-		NORMAL, LECTERN
+	protected static void renderButton(PartialItemModelRenderer renderer, PoseStack ms, int light, float pt, BakedModel button,
+									   float b, int index, boolean renderDepression) {
+		ms.pushPose();
+		if (renderDepression) {
+			float depression = b * buttons.get(index).getValue(pt);
+			ms.translate(0, depression, 0);
+		}
+		renderer.renderSolid(button, light);
+		ms.popPose();
+	}
+
+	protected enum RenderType {
+		NORMAL, LECTERN;
 	}
 }

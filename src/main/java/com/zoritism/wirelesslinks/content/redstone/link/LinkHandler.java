@@ -9,10 +9,6 @@ import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.*;
 
-// LOGGING
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 /**
  * Менеджер сетей Redstone Link с поддержкой частот.
  * Теперь поддерживает виртуальные передатчики для контроллеров (по UUID игрока).
@@ -26,8 +22,6 @@ public class LinkHandler extends SavedData {
 
 	// Виртуальные передатчики: для Linked Controller — по UUID игрока
 	private final Map<Couple<ItemStack>, Map<UUID, Integer>> virtualTransmitters = new HashMap<>();
-
-	private static final Logger LOGGER = LogManager.getLogger();
 
 	public static LinkHandler get(Level level) {
 		if (level.isClientSide)
@@ -54,10 +48,8 @@ public class LinkHandler extends SavedData {
 
 		if (link.isListening()) {
 			receiversByFrequency.computeIfAbsent(newFrequency, $ -> new HashSet<>()).add(link);
-			LOGGER.info("[LinkHandler][updateLink] Registered receiver: {} at {} for frequency {}", link.getClass().getSimpleName(), link.getLocation(), newFrequency);
 		} else {
 			transmittersByFrequency.computeIfAbsent(newFrequency, $ -> new HashSet<>()).add(link);
-			LOGGER.info("[LinkHandler][updateLink] Registered transmitter: {} at {} for frequency {}", link.getClass().getSimpleName(), link.getLocation(), newFrequency);
 		}
 
 		refreshChannel(newFrequency);
@@ -86,13 +78,11 @@ public class LinkHandler extends SavedData {
 			Set<IRedstoneLinkable> set = receiversByFrequency.get(frequency);
 			if (set != null) {
 				set.remove(link);
-				LOGGER.info("[LinkHandler][removeLink] Removed receiver: {} at {} for frequency {}", link.getClass().getSimpleName(), link.getLocation(), frequency);
 			}
 		} else {
 			Set<IRedstoneLinkable> set = transmittersByFrequency.get(frequency);
 			if (set != null) {
 				set.remove(link);
-				LOGGER.info("[LinkHandler][removeLink] Removed transmitter: {} at {} for frequency {}", link.getClass().getSimpleName(), link.getLocation(), frequency);
 			}
 		}
 
@@ -107,17 +97,6 @@ public class LinkHandler extends SavedData {
 		Set<IRedstoneLinkable> transmitters = transmittersByFrequency.getOrDefault(frequency, Set.of());
 		Set<IRedstoneLinkable> receivers = receiversByFrequency.getOrDefault(frequency, Set.of());
 
-		LOGGER.info("[LinkHandler][refreshChannel] frequency={}", frequency);
-		LOGGER.info("  transmitters count: {}", transmitters.size());
-		for (IRedstoneLinkable tx : transmitters) {
-			LOGGER.info("    [TX] {} at {} strength={}", tx.getClass().getSimpleName(), tx.getLocation(), tx.getTransmittedStrength());
-		}
-		LOGGER.info("  receivers count: {}", receivers.size());
-		for (IRedstoneLinkable rx : receivers) {
-			LOGGER.info("    [RX] {} at {} freq={} (equals? {})",
-					rx.getClass().getSimpleName(), rx.getLocation(), rx.getFrequency(), rx.getFrequency().equals(frequency));
-		}
-
 		int maxPower = 0;
 		for (IRedstoneLinkable tx : transmitters) {
 			maxPower = Math.max(maxPower, tx.getTransmittedStrength());
@@ -130,10 +109,8 @@ public class LinkHandler extends SavedData {
 
 		for (IRedstoneLinkable rx : receivers) {
 			if (!rx.getFrequency().equals(frequency)) {
-				LOGGER.info("    [RX] {} at {} freq mismatch: rx={}, expected={}", rx.getClass().getSimpleName(), rx.getLocation(), rx.getFrequency(), frequency);
 				continue;
 			}
-			LOGGER.info("    [RX] {} at {} setReceivedStrength({})", rx.getClass().getSimpleName(), rx.getLocation(), maxPower);
 			rx.setReceivedStrength(maxPower);
 			if (rx instanceof RedstoneLinkBlockEntity be) {
 				be.tick();
@@ -151,7 +128,6 @@ public class LinkHandler extends SavedData {
 		if (frequency == null || player == null)
 			return;
 		virtualTransmitters.computeIfAbsent(frequency, $ -> new HashMap<>()).put(player, strength);
-		LOGGER.info("[LinkHandler][setVirtualTransmitter] freq={}, player={}, strength={}", frequency, player, strength);
 		refreshChannel(frequency);
 		setDirty();
 	}
@@ -169,7 +145,6 @@ public class LinkHandler extends SavedData {
 			if (map.isEmpty())
 				virtualTransmitters.remove(frequency);
 		}
-		LOGGER.info("[LinkHandler][removeVirtualTransmitter] freq={}, player={}", frequency, player);
 		refreshChannel(frequency);
 		setDirty();
 	}
@@ -191,7 +166,6 @@ public class LinkHandler extends SavedData {
 			refreshChannel(freq);
 		}
 		setDirty();
-		LOGGER.info("[LinkHandler][removeAllVirtualTransmittersFor] player={}, frequencies removed: {}", player, toRemove.size());
 	}
 
 	@Override
