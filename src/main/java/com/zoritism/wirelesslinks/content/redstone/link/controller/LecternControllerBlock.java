@@ -44,7 +44,7 @@ public class LecternControllerBlock extends LecternBlock {
         ItemStack held = player.getItemInHand(hand);
         ItemStack lecternController = lectern.getController();
 
-        // Вставить контроллер
+        // Теперь просто ПКМ (без шифта) вставляет контроллер
         if (lecternController.isEmpty() && held.getItem() == ModItems.LINKED_CONTROLLER.get()) {
             if (!level.isClientSide) {
                 ItemStack insert = player.isCreative() ? held.copy() : held.split(1);
@@ -58,13 +58,17 @@ public class LecternControllerBlock extends LecternBlock {
         if (player.isShiftKeyDown() && !lecternController.isEmpty()) {
             if (!level.isClientSide) {
                 lectern.dropController(state);
+
+                // очищаем NBT после извлечения контроллера
+                lectern.setController(ItemStack.EMPTY);
                 lectern.sendData();
+
                 replaceWithLectern(state, level, pos);
             }
             return InteractionResult.SUCCESS;
         }
 
-        // ПКМ — активировать управление
+        // ПКМ по lectern с уже вставленным контроллером — активировать управление
         if (!lecternController.isEmpty()) {
             if (!level.isClientSide)
                 lectern.tryStartUsing(player);
@@ -80,6 +84,9 @@ public class LecternControllerBlock extends LecternBlock {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof LecternControllerBlockEntity lectern && !lectern.getController().isEmpty()) {
                 lectern.dropController(oldState);
+
+                // очищаем NBT после извлечения контроллера
+                lectern.setController(ItemStack.EMPTY);
             }
             super.onRemove(oldState, level, pos, newState, isMoving);
         }

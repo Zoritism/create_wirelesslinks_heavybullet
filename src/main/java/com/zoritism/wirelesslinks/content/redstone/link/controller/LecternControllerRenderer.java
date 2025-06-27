@@ -11,10 +11,6 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 
-/**
- * Рендерит Linked Controller на LecternControllerBlock аналогично Create.
- * Использует custom renderer предмета и позиционирует контроллер-книгу на лекторне.
- */
 public class LecternControllerRenderer implements BlockEntityRenderer<LecternControllerBlockEntity> {
 
     public LecternControllerRenderer(BlockEntityRendererProvider.Context context) {}
@@ -23,7 +19,6 @@ public class LecternControllerRenderer implements BlockEntityRenderer<LecternCon
     public void render(LecternControllerBlockEntity be, float partialTicks, PoseStack ms,
                        MultiBufferSource buffer, int light, int overlay) {
 
-        // ВСЕГДА рендерим предмет-контроллер (как в Create)
         ItemStack stack = be.getController();
         if (stack.isEmpty())
             return;
@@ -36,10 +31,7 @@ public class LecternControllerRenderer implements BlockEntityRenderer<LecternCon
         boolean active = be.hasUser();
         boolean renderDepression = Minecraft.getInstance().player != null && be.isUsedBy(Minecraft.getInstance().player);
 
-        Direction facing = Direction.NORTH;
-        if (be.getBlockState().hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING)) {
-            facing = be.getBlockState().getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING);
-        }
+        Direction facing = be.getBlockState().getValue(LecternControllerBlock.FACING);
 
         ms.pushPose();
         ms.translate(0.5, 1.45, 0.5);
@@ -52,7 +44,7 @@ public class LecternControllerRenderer implements BlockEntityRenderer<LecternCon
         ms.popPose();
     }
 
-    // Вспомогательный метод для угла поворота по горизонтали (аналог AngleHelper.horizontalAngle)
+    // Угол для поворота (эквивалент AngleHelper.horizontalAngle)
     private static float horizontalAngle(Direction facing) {
         return switch (facing) {
             case NORTH -> 180f;
