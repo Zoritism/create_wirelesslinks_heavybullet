@@ -140,14 +140,11 @@ public class LinkedControllerClientHandler {
 					if (changed) {
 						Minecraft mc = Minecraft.getInstance();
 						if (mc.player != null) {
-							// Форсируем обновление предмета в руках и офф-хэнде
-							ItemStack main = mc.player.getMainHandItem();
-							ItemStack off = mc.player.getOffhandItem();
-							if (main.is(ModItems.LINKED_CONTROLLER.get())) {
-								main.setPopTime(5);
-							}
-							if (off.is(ModItems.LINKED_CONTROLLER.get())) {
-								off.setPopTime(5);
+							for (ItemStack hand : new ItemStack[]{mc.player.getMainHandItem(), mc.player.getOffhandItem()}) {
+								if (hand.is(ModItems.LINKED_CONTROLLER.get())) {
+									// Форсируем обновление рендера через временное NBT
+									hand.getOrCreateTag().putBoolean("wl_force_redraw", true);
+								}
 							}
 						}
 					}
@@ -170,6 +167,13 @@ public class LinkedControllerClientHandler {
 			// Даже если игрока нет, тик анимации нужен для визуализации
 			LinkedControllerItemRenderer.tick();
 			return;
+		}
+
+		// Очищаем временный NBT для принудительного обновления рендера
+		for (ItemStack hand : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
+			if (hand.is(ModItems.LINKED_CONTROLLER.get()) && hand.hasTag() && hand.getTag().contains("wl_force_redraw")) {
+				hand.getTag().remove("wl_force_redraw");
+			}
 		}
 
 		boolean isController = isControllerInEitherHand();
