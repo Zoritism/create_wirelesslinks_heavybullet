@@ -2,6 +2,7 @@ package com.zoritism.wirelesslinks.client;
 
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkBlockEntity;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkRenderer;
+import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerClientHandler;
 import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerScreen;
 import com.zoritism.wirelesslinks.registry.ModBlockEntities;
 import com.zoritism.wirelesslinks.registry.ModBlocks;
@@ -32,6 +33,11 @@ public class ClientInit {
 
         // ► а слой рендера задаём в client-setup
         modBus.addListener(ClientInit::onClientSetup);
+
+        // ГАРАНТИРОВАННАЯ загрузка класса-обработчика для активации анимации контроллера
+        // Без этого @SubscribeEvent НЕ сработает и тик анимаций не будет!
+        // Можно вызвать любой статический метод, здесь просто обращение к полю
+        LinkedControllerClientHandler.MODE = LinkedControllerClientHandler.MODE;
     }
 
     /** обработчик FMLClientSetupEvent */

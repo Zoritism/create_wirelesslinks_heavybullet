@@ -37,6 +37,13 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 			buttons.add(LerpedFloat.linear().startWithValue(0));
 	}
 
+	/**
+	 * Добавьте этот вызов в ClientInit.init(), чтобы гарантировать подгрузку класса
+	 */
+	public static void ensureClientHandlerLoaded() {
+		// Просто статический вызов, чтобы триггерить загрузку класса и регистрацию событий
+	}
+
 	public static void tick() {
 		if (Minecraft.getInstance().isPaused())
 			return;
