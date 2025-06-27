@@ -16,6 +16,8 @@ import java.util.*;
  * - Таймаут ПРОДЛЕВАЕТСЯ только когда реально приходит новый pressed=true от игрока (каждый тик от клиента!).
  * - Только release или истечение таймаута сбрасывает сигнал и виртуальный передатчик.
  * - Используется WorldAttached для правильной работы в мульти-мире.
+ *
+ * Исправлено: таймаут сбрасывается только если pressed=true НЕ пришёл ни разу за тик.
  */
 public class LinkedControllerServerHandler {
 
@@ -39,11 +41,15 @@ public class LinkedControllerServerHandler {
 			Iterator<ManualFrequencyEntry> subIt = list.iterator();
 			while (subIt.hasNext()) {
 				ManualFrequencyEntry freqEntry = subIt.next();
-				// Таймер декрементируется ТОЛЬКО если не было продления в этом тике!
-				if (!freqEntry.touchedThisTick) {
+
+				// Таймер декрементируется ТОЛЬКО если не было ни одного pressed=true за тик!
+				if (!freqEntry.heldThisTick) {
 					freqEntry.decrement();
+				} else {
+					// Если был сигнал, сбрасываем таймер на максимум (держим сигнал пока держит кнопку)
+					freqEntry.setTimeout(TIMEOUT);
 				}
-				freqEntry.touchedThisTick = false; // сброс на следующий тик
+				freqEntry.heldThisTick = false; // сброс на следующий тик
 
 				if (!freqEntry.isAlive()) {
 					if (world instanceof Level level) {
@@ -60,7 +66,7 @@ public class LinkedControllerServerHandler {
 
 	/**
 	 * Приходит при нажатии или отпускании кнопки на контроллере.
-	 * - pressed=true: если нет ManualFrequencyEntry — создаёт, если есть — продлевает timeout (и помечает как активный в этом тике).
+	 * - pressed=true: если нет ManualFrequencyEntry — создаёт, если есть — помечает как активный в этом тике.
 	 * - pressed=false: немедленно удаляет запись (и выключает сигнал).
 	 */
 	public static void receivePressed(LevelAccessor world, BlockPos pos, UUID playerId, List<Couple<ItemStack>> frequencies, boolean pressed) {
@@ -80,14 +86,13 @@ public class LinkedControllerServerHandler {
 			}
 			if (pressed) {
 				if (matched != null) {
-					// Продлеваем timeout и отмечаем, что этот entry был активен в этом тике
+					// Обновляем позицию и отмечаем, что сигнал держится в этом тике
 					matched.updatePosition(pos);
-					matched.setTimeout(TIMEOUT);
-					matched.touchedThisTick = true;
+					matched.heldThisTick = true;
 				} else {
 					// Если нет такой записи, создаём новую и включаем сигнал
 					ManualFrequencyEntry entry = new ManualFrequencyEntry(pos, activated, TIMEOUT);
-					entry.touchedThisTick = true;
+					entry.heldThisTick = true;
 					list.add(entry);
 				}
 				// В любом случае поддерживаем виртуальный передатчик активным
@@ -134,8 +139,8 @@ public class LinkedControllerServerHandler {
 		private final Couple<ItemStack> frequency;
 		private BlockPos pos;
 
-		// Был ли продлён таймер в этом тике (то есть пришёл pressed=true)
-		private boolean touchedThisTick = false;
+		// Был ли сигнал активен в этом тике (то есть пришёл pressed=true)
+		private boolean heldThisTick = false;
 
 		public ManualFrequencyEntry(BlockPos pos, Couple<ItemStack> frequency, int timeout) {
 			this.pos = pos;
