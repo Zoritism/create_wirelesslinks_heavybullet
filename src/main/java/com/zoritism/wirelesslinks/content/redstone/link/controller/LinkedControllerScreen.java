@@ -27,7 +27,7 @@ import net.minecraftforge.items.ItemStackHandler;
 
 /**
  * Корректная реализация: полностью скрывает стандартное число в ghost-слотах,
- * показывая его только при зажатом ctrl.
+ * показывая его только при зажатом ctrl и если ctrl был отпущен после открытия.
  */
 public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedControllerMenu> {
 
@@ -38,6 +38,9 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	private IconButton confirmButton;
 
 	private static final int GHOST_SLOTS = 12;
+
+	// Для логики "ctrlReleasedSinceOpen"
+	private boolean ctrlReleasedSinceOpen = false;
 
 	public LinkedControllerScreen(LinkedControllerMenu menu, Inventory inv, Component title) {
 		super(menu, inv, title);
@@ -69,6 +72,9 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		addRenderableWidget(confirmButton);
 
 		extraAreas = ImmutableList.of(new Rect2i(x + background.getWidth() + 4, y + background.getHeight() - 44, 64, 56));
+
+		// Сброс состояния по ctrl на момент открытия
+		ctrlReleasedSinceOpen = false;
 	}
 
 	/**
@@ -76,13 +82,13 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	 */
 	private ItemStack[] backupGhostStacks = new ItemStack[GHOST_SLOTS];
 
-	private void patchGhostInventoryCountsForRender(boolean ctrlDown) {
+	private void patchGhostInventoryCountsForRender(boolean showCounts) {
 		ItemStackHandler ghost = menu.ghostInventory;
 		for (int i = 0; i < GHOST_SLOTS; i++) {
 			ItemStack orig = ghost.getStackInSlot(i);
 			backupGhostStacks[i] = orig.copy(); // backup!
 			if (!orig.isEmpty()) {
-				int needCount = ctrlDown ? backupGhostStacks[i].getCount() : 1;
+				int needCount = showCounts ? backupGhostStacks[i].getCount() : 1;
 				if (orig.getCount() != needCount) {
 					ItemStack patched = orig.copy();
 					patched.setCount(needCount);
@@ -107,11 +113,17 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	@Override
 	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
 		boolean ctrlDown = Screen.hasControlDown();
-		patchGhostInventoryCountsForRender(ctrlDown);
+
+		// Фикс: только если ctrl был отпущен после открытия и снова нажат -- показываем числа
+		if (!ctrlDown) {
+			ctrlReleasedSinceOpen = true;
+		}
+		boolean showCtrlNumbers = ctrlReleasedSinceOpen && ctrlDown;
+
+		patchGhostInventoryCountsForRender(showCtrlNumbers);
 		try {
 			super.render(graphics, mouseX, mouseY, partialTicks);
-			// Поверх рисуем count только если ctrlDown и count > 1
-			if (ctrlDown) {
+			if (showCtrlNumbers) {
 				renderGhostSlotCounts(graphics, mouseX, mouseY);
 			}
 		} finally {
@@ -140,7 +152,7 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	}
 
 	/**
-	 * Кастомный рендер количества предметов в ghost-слотах (только если ctrlDown).
+	 * Кастомный рендер количества предметов в ghost-слотах (только если showCtrlNumbers).
 	 */
 	protected void renderGhostSlotCounts(GuiGraphics graphics, int mouseX, int mouseY) {
 		Minecraft mc = Minecraft.getInstance();
