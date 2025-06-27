@@ -16,6 +16,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.world.item.ItemStack;
@@ -45,6 +46,9 @@ public class LinkedControllerClientHandler {
 	private static int packetCooldown = 0;
 	private static boolean f5Pressed = false;
 	private static ItemStack lastHeldController = ItemStack.EMPTY;
+
+	// Для временного флага инвалидации (см. ниже)
+	private static boolean forceRedrawNextTick = false;
 
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
@@ -142,8 +146,10 @@ public class LinkedControllerClientHandler {
 						if (mc.player != null) {
 							for (ItemStack hand : new ItemStack[]{mc.player.getMainHandItem(), mc.player.getOffhandItem()}) {
 								if (hand.is(ModItems.LINKED_CONTROLLER.get())) {
-									// Форсируем обновление рендера через временное NBT
-									hand.getOrCreateTag().putBoolean("wl_force_redraw", true);
+									CompoundTag tag = hand.getOrCreateTag();
+									tag.putInt("wl_force_redraw", (int)(System.nanoTime() & 0xFFFFFFF));
+									// уникальное значение чтобы MC гарантированно пересоздал модель
+									forceRedrawNextTick = true;
 								}
 							}
 						}
@@ -169,11 +175,14 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
-		// Очищаем временный NBT для принудительного обновления рендера
-		for (ItemStack hand : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
-			if (hand.is(ModItems.LINKED_CONTROLLER.get()) && hand.hasTag() && hand.getTag().contains("wl_force_redraw")) {
-				hand.getTag().remove("wl_force_redraw");
+		// Очищаем временный NBT-флаг для принудительного обновления рендера (только 1 тик)
+		if (forceRedrawNextTick) {
+			for (ItemStack hand : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
+				if (hand.is(ModItems.LINKED_CONTROLLER.get()) && hand.hasTag() && hand.getTag().contains("wl_force_redraw")) {
+					hand.getTag().remove("wl_force_redraw");
+				}
 			}
+			forceRedrawNextTick = false;
 		}
 
 		boolean isController = isControllerInEitherHand();
