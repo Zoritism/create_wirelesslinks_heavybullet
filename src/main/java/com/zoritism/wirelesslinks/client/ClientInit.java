@@ -30,8 +30,8 @@ public class ClientInit {
             MenuScreens.register(ModMenus.LINKED_CONTROLLER_MENU.get(), LinkedControllerScreen::new);
             BlockEntityRenderers.register(ModBlockEntities.REDSTONE_LINK.get(), RedstoneLinkRenderer::new);
 
-            // Если у вас есть LecternControllerBlockEntity:
-            // BlockEntityRenderers.register(ModBlockEntities.LECTERN_CONTROLLER.get(), LecternControllerRenderer::new);
+            // Регистрация LecternControllerBlockEntity рендера
+            BlockEntityRenderers.register(ModBlockEntities.LECTERN_CONTROLLER.get(), LecternControllerRenderer::new);
         });
 
         // ► слой рендера задаём в client-setup
@@ -49,8 +49,8 @@ public class ClientInit {
                     ModBlocks.REDSTONE_LINK.get(),
                     RenderType.cutout()
             );
-            // Если добавится свой блок лекторна — аналогично:
-            // ItemBlockRenderTypes.setRenderLayer(ModBlocks.LECTERN_CONTROLLER.get(), RenderType.cutout());
+            // Теперь также для LecternControllerBlock:
+            ItemBlockRenderTypes.setRenderLayer(ModBlocks.LECTERN_CONTROLLER.get(), RenderType.cutout());
         });
     }
 }

@@ -20,7 +20,6 @@ public class ModBlockEntities {
                             ModBlocks.REDSTONE_LINK.get()
                     ).build(null));
 
-    // Регистрация LecternControllerBlockEntity с правильным конструктором
     public static final RegistryObject<BlockEntityType<LecternControllerBlockEntity>> LECTERN_CONTROLLER =
             BLOCK_ENTITIES.register("lectern_controller",
                     () -> BlockEntityType.Builder.of(

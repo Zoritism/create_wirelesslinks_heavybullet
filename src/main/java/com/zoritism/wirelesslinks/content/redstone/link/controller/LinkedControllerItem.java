@@ -19,6 +19,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -45,36 +46,40 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		BlockPos pos = ctx.getClickedPos();
 		BlockState state = level.getBlockState(pos);
 
-		// Взаимодействие только с нашим лекторном
+		// Делегация логики блоку лекторна — только инициируем действия!
 		if (state.getBlock() == ModBlocks.LECTERN_CONTROLLER.get()) {
-			if (!level.isClientSide) {
-				var be = level.getBlockEntity(pos);
-				if (be instanceof LecternControllerBlockEntity lectern) {
-					ItemStack lecternController = lectern.getController();
-
-					// Shift+ПКМ: извлечь контроллер
-					if (player.isShiftKeyDown()) {
+			// Shift+ПКМ по своему лекторну — инициируем извлечение через блок
+			if (player.isShiftKeyDown()) {
+				if (!level.isClientSide) {
+					var be = level.getBlockEntity(pos);
+					if (be instanceof LecternControllerBlockEntity lectern) {
+						ItemStack lecternController = lectern.getController();
 						if (!lecternController.isEmpty()) {
 							lectern.dropController(state);
 							lectern.sendData();
 							return InteractionResult.SUCCESS;
 						}
-						return InteractionResult.PASS;
 					}
+				}
+				return InteractionResult.SUCCESS;
+			}
+			// Обычный ПКМ по своему лекторну — передаём управление блоку (возвращаем PASS)
+			return InteractionResult.PASS;
+		}
 
-					// Вставить контроллер, если лекторн пустой
-					if (lecternController.isEmpty()) {
-						ItemStack insert = player.isCreative() ? ctx.getItemInHand().copy() : ctx.getItemInHand().split(1);
-						lectern.setController(insert);
-						lectern.sendData();
-						return InteractionResult.SUCCESS;
-					}
-
-					// Режим управления: если контроллер уже есть (без проверки расстояния)
-					if (!lecternController.isEmpty()) {
-						lectern.tryStartUsing(player);
-						return InteractionResult.SUCCESS;
-					}
+		// ПКМ по ванильному лекторну (без книги) — заменяем на свой лекторн через блок
+		if (state.is(Blocks.LECTERN) && !state.getValue(net.minecraft.world.level.block.LecternBlock.HAS_BOOK)) {
+			if (!level.isClientSide) {
+				ItemStack stack = player.isCreative() ? ctx.getItemInHand().copy() : ctx.getItemInHand().split(1);
+				// Меняем на свой лекторн
+				BlockState newState = ModBlocks.LECTERN_CONTROLLER.get().defaultBlockState()
+						.setValue(net.minecraft.world.level.block.LecternBlock.FACING, state.getValue(net.minecraft.world.level.block.LecternBlock.FACING))
+						.setValue(net.minecraft.world.level.block.LecternBlock.POWERED, state.getValue(net.minecraft.world.level.block.LecternBlock.POWERED));
+				level.setBlockAndUpdate(pos, newState);
+				var be = level.getBlockEntity(pos);
+				if (be instanceof LecternControllerBlockEntity lectern) {
+					lectern.setController(stack);
+					lectern.sendData();
 				}
 			}
 			return InteractionResult.SUCCESS;
@@ -94,7 +99,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	}
 
 	@Override
-	@Deprecated // Не используется Forge приоритетно при наличии useOn
+	@Deprecated
 	public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext ctx) {
 		return InteractionResult.PASS;
 	}
