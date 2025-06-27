@@ -2,21 +2,20 @@ package com.zoritism.wirelesslinks.content.redstone.link.controller;
 
 import com.zoritism.wirelesslinks.content.redstone.link.LinkHandler;
 import com.zoritism.wirelesslinks.util.Couple;
+import com.zoritism.wirelesslinks.util.WorldAttached;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 
 import java.util.*;
-import java.util.Map.Entry;
-import java.util.UUID;
 
 /**
- * Серверная логика Linked Controller:
- * - Сигналы держатся только пока кнопка удерживается (pressed=true), сбрасываются мгновенно при отпускании (pressed=false).
- * - Каждая кнопка/канал = ManualFrequencyEntry, обновляется при нажатии, удаляется при отпускании.
- * - tick() очищает только сигналы, если release-пакет вообще не пришёл (например, клиент вылетел).
- * - Главное исправление: отпускание кнопки (pressed=false) МГНОВЕННО удаляет сигнал, независимо от таймера.
- * - Теперь реализован "предохранитель" (watchdog): если игрок убрал/выбросил контроллер, сигнал сбрасывается через timeout.
+ * Серверная логика Linked Controller максимально по Create, но с нашими частотами Couple<ItemStack>.
+ * - Сигналы держатся пока кнопка удерживается (pressed=true) или до истечения таймаута (если release не пришёл).
+ * - Таймаут ПРОДЛЕВАЕТСЯ только когда реально приходит новый pressed=true от игрока (каждый тик от клиента!).
+ * - Только release или истечение таймаута сбрасывает сигнал и виртуальный передатчик.
+ * - Используется WorldAttached для правильной работы в мульти-мире.
  */
 public class LinkedControllerServerHandler {
 
@@ -24,35 +23,36 @@ public class LinkedControllerServerHandler {
 	public static final int TIMEOUT = 30;
 
 	/**
-	 * Map: UUID игрока -> список ManualFrequencyEntry (активные каналы контроллера)
+	 * WorldAttached: LevelAccessor -> Map<UUID, Collection<ManualFrequencyEntry>>
 	 */
-	private static final Map<UUID, Collection<ManualFrequencyEntry>> receivedInputs = new HashMap<>();
+	private static final WorldAttached<Map<UUID, Collection<ManualFrequencyEntry>>> receivedInputs =
+			new WorldAttached<>($ -> new HashMap<>());
 
-	/**
-	 * Обновление состояний сигналов контроллеров.
-	 * Вызывать в серверном тике (ServerTickEvent, либо world.tick()).
-	 * Очищает "залипшие" сигналы (например, если release-пакет не пришёл вообще).
-	 * Также работает как "watchdog": если игрок убрал/выбросил контроллер, сигнал сбрасывается по таймауту.
-	 */
-	public static void tick(Level level) {
-		Iterator<Entry<UUID, Collection<ManualFrequencyEntry>>> mainIt = receivedInputs.entrySet().iterator();
+	public static void tick(LevelAccessor world) {
+		Map<UUID, Collection<ManualFrequencyEntry>> map = receivedInputs.get(world);
+		Iterator<Map.Entry<UUID, Collection<ManualFrequencyEntry>>> mainIt = map.entrySet().iterator();
 		while (mainIt.hasNext()) {
-			Entry<UUID, Collection<ManualFrequencyEntry>> entry = mainIt.next();
+			Map.Entry<UUID, Collection<ManualFrequencyEntry>> entry = mainIt.next();
+			UUID playerId = entry.getKey();
 			Collection<ManualFrequencyEntry> list = entry.getValue();
 
 			Iterator<ManualFrequencyEntry> subIt = list.iterator();
 			while (subIt.hasNext()) {
 				ManualFrequencyEntry freqEntry = subIt.next();
-				freqEntry.decrement();
+				// Таймер декрементируется ТОЛЬКО если не было продления в этом тике!
+				if (!freqEntry.touchedThisTick) {
+					freqEntry.decrement();
+				}
+				freqEntry.touchedThisTick = false; // сброс на следующий тик
+
 				if (!freqEntry.isAlive()) {
-					// Удаляем сигнал и виртуальный передатчик, если не был продлён вовремя
-					LinkHandler.get(level).removeVirtualTransmitter(freqEntry.getFrequency(), entry.getKey());
-					// ВАЖНО: обновляем канал — чтобы Redstone Link сбросил сигнал!
-					LinkHandler.get(level).refreshChannel(freqEntry.getFrequency());
+					if (world instanceof Level level) {
+						LinkHandler.get(level).removeVirtualTransmitter(freqEntry.getFrequency(), playerId);
+						LinkHandler.get(level).refreshChannel(freqEntry.getFrequency());
+					}
 					subIt.remove();
 				}
 			}
-
 			if (list.isEmpty())
 				mainIt.remove();
 		}
@@ -60,66 +60,65 @@ public class LinkedControllerServerHandler {
 
 	/**
 	 * Приходит при нажатии или отпускании кнопки на контроллере.
-	 * - pressed=true: создаёт ManualFrequencyEntry (если нет), включает сигнал и устанавливает TIMEOUT.
-	 * - pressed=false: немедленно удаляет запись (и выключает сигнал), даже если держали сотни тиков.
+	 * - pressed=true: если нет ManualFrequencyEntry — создаёт, если есть — продлевает timeout (и помечает как активный в этом тике).
+	 * - pressed=false: немедленно удаляет запись (и выключает сигнал).
 	 */
-	public static void receivePressed(Level level, BlockPos pos, UUID playerId, List<Couple<ItemStack>> frequencies, boolean pressed) {
-		if (level == null || playerId == null || frequencies == null)
+	public static void receivePressed(LevelAccessor world, BlockPos pos, UUID playerId, List<Couple<ItemStack>> frequencies, boolean pressed) {
+		if (world == null || playerId == null || frequencies == null)
 			return;
 
-		Collection<ManualFrequencyEntry> list = receivedInputs.computeIfAbsent(playerId, $ -> new ArrayList<>());
+		Map<UUID, Collection<ManualFrequencyEntry>> map = receivedInputs.get(world);
+		Collection<ManualFrequencyEntry> list = map.computeIfAbsent(playerId, $ -> new ArrayList<>());
 
-		if (!pressed) {
-			// Если пришёл отпуск (release), удаляем все entry для этих частот немедленно
-			for (Couple<ItemStack> activated : frequencies) {
-				Iterator<ManualFrequencyEntry> it = list.iterator();
-				boolean found = false;
-				while (it.hasNext()) {
-					ManualFrequencyEntry entry = it.next();
-					if (entry.getFrequency().equals(activated)) {
-						LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
-						// ВАЖНО: обновляем канал — чтобы Redstone Link сбросил сигнал!
-						LinkHandler.get(level).refreshChannel(activated);
-						it.remove();
-						found = true;
-					}
+		for (Couple<ItemStack> activated : frequencies) {
+			ManualFrequencyEntry matched = null;
+			for (ManualFrequencyEntry entry : list) {
+				if (entry.getFrequency().equals(activated)) {
+					matched = entry;
+					break;
 				}
-				if (!found) {
-					// Если не нашли ManualFrequencyEntry (например, истёк timeout), всё равно удаляем виртуальный передатчик!
+			}
+			if (pressed) {
+				if (matched != null) {
+					// Продлеваем timeout и отмечаем, что этот entry был активен в этом тике
+					matched.updatePosition(pos);
+					matched.setTimeout(TIMEOUT);
+					matched.touchedThisTick = true;
+				} else {
+					// Если нет такой записи, создаём новую и включаем сигнал
+					ManualFrequencyEntry entry = new ManualFrequencyEntry(pos, activated, TIMEOUT);
+					entry.touchedThisTick = true;
+					list.add(entry);
+				}
+				// В любом случае поддерживаем виртуальный передатчик активным
+				if (world instanceof Level level)
+					LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);
+			} else {
+				boolean found = false;
+				if (matched != null) {
+					if (world instanceof Level level) {
+						LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
+						LinkHandler.get(level).refreshChannel(activated);
+					}
+					list.remove(matched);
+					found = true;
+				}
+				if (!found && world instanceof Level level) {
+					// Если не нашли ManualFrequencyEntry (например, истёк timeout), всё равно обновляем канал!
 					LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
 					LinkHandler.get(level).refreshChannel(activated);
 				}
 			}
-			return;
-		}
-
-		WithNext:
-		for (Couple<ItemStack> activated : frequencies) {
-			Iterator<ManualFrequencyEntry> it = list.iterator();
-			while (it.hasNext()) {
-				ManualFrequencyEntry entry = it.next();
-				if (entry.getFrequency().equals(activated)) {
-					// Обновляем позицию и таймер (если вдруг пришло повторное нажатие)
-					entry.updatePosition(pos);
-					entry.setTimeout(TIMEOUT);
-					LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);
-					continue WithNext;
-				}
-			}
-
-			// Если нет такой записи, создаём новую и включаем сигнал
-			ManualFrequencyEntry entry = new ManualFrequencyEntry(pos, activated, TIMEOUT);
-			list.add(entry);
-			LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);
 		}
 	}
 
 	/**
-	 * Удалить все сигналы игрока (вызывать при дисконнекте/смерти/выбросе контроллера и т.д.)
+	 * Удалить все сигналы игрока (вызывать при дисконнекте/смерти).
 	 */
-	public static void removeAllInputs(Level level, UUID playerId) {
-		Collection<ManualFrequencyEntry> list = receivedInputs.remove(playerId);
-		if (list != null) {
+	public static void removeAllInputs(LevelAccessor world, UUID playerId) {
+		Map<UUID, Collection<ManualFrequencyEntry>> map = receivedInputs.get(world);
+		Collection<ManualFrequencyEntry> list = map.remove(playerId);
+		if (list != null && world instanceof Level level) {
 			for (ManualFrequencyEntry entry : list) {
 				LinkHandler.get(level).removeVirtualTransmitter(entry.getFrequency(), playerId);
 				LinkHandler.get(level).refreshChannel(entry.getFrequency());
@@ -129,12 +128,14 @@ public class LinkedControllerServerHandler {
 
 	/**
 	 * ManualFrequencyEntry — активный канал контроллера.
-	 * Аналогичен ManualFrequencyEntry в Create.
 	 */
 	public static class ManualFrequencyEntry {
 		private int timeout;
 		private final Couple<ItemStack> frequency;
 		private BlockPos pos;
+
+		// Был ли продлён таймер в этом тике (то есть пришёл pressed=true)
+		private boolean touchedThisTick = false;
 
 		public ManualFrequencyEntry(BlockPos pos, Couple<ItemStack> frequency, int timeout) {
 			this.pos = pos;
