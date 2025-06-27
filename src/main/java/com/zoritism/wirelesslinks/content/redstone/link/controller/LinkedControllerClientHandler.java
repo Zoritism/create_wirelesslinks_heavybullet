@@ -249,6 +249,13 @@ public class LinkedControllerClientHandler {
 			return;
 		}
 
+		// --- Новый блок: отправка held сигналов каждый тик для всех нажатых кнопок ---
+		if (!currentlyPressed.isEmpty()) {
+			for (int i : currentlyPressed) {
+				sendControlChannelPacket(i, true);
+			}
+		}
+
 		if (f5Pressed && packetCooldown == 0) {
 			sendTestPacket(true);
 			packetCooldown = PACKET_RATE;
