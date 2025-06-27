@@ -18,10 +18,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-// LOGGING
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 /**
  * Аналог AllPackets из Create.
  * Все ваши пакеты должны реализовывать интерфейс ModPackets.SimplePacketBase!
@@ -29,15 +25,12 @@ import org.apache.logging.log4j.Logger;
 public enum ModPackets {
 
     CLEAR_CONTAINER(ClearMenuPacket.class, ClearMenuPacket::new, NetworkDirection.PLAY_TO_SERVER),
-    LINKED_CONTROLLER_INPUT(LinkedControllerInputPacket.class, LinkedControllerInputPacket::new, NetworkDirection.PLAY_TO_SERVER),
-    TEST_PACKET(TestPacket.class, TestPacket::new, NetworkDirection.PLAY_TO_SERVER); // Добавлено тестовое сообщение
+    LINKED_CONTROLLER_INPUT(LinkedControllerInputPacket.class, LinkedControllerInputPacket::new, NetworkDirection.PLAY_TO_SERVER);
 
     public static final ResourceLocation CHANNEL_NAME = new ResourceLocation(WirelessLinksMod.MODID, "main");
     public static final int NETWORK_VERSION = 1;
     public static final String NETWORK_VERSION_STR = String.valueOf(NETWORK_VERSION);
     private static SimpleChannel channel;
-
-    private static final Logger LOGGER = LogManager.getLogger();
 
     private final PacketType<?> packetType;
 
@@ -46,7 +39,6 @@ public enum ModPackets {
     }
 
     public static void registerPackets() {
-        LOGGER.info("[PACKET] Registering channel and all packets...");
         channel = NetworkRegistry.ChannelBuilder.named(CHANNEL_NAME)
                 .serverAcceptedVersions(NETWORK_VERSION_STR::equals)
                 .clientAcceptedVersions(NETWORK_VERSION_STR::equals)
@@ -54,21 +46,15 @@ public enum ModPackets {
                 .simpleChannel();
 
         for (ModPackets packet : values()) {
-            LOGGER.info("[PACKET] Registering packet: {}", packet.packetType.type.getSimpleName());
             packet.packetType.register();
         }
-        LOGGER.info("[PACKET] All packets registered.");
     }
 
     public static SimpleChannel getChannel() {
-        if (channel == null) {
-            LOGGER.error("[PACKET] getChannel() called before registration! Channel is null.");
-        }
         return channel;
     }
 
     public static void sendToNear(Level world, BlockPos pos, int range, Object message) {
-        LOGGER.info("[PACKET] sendToNear: pos={}, range={}, message={}", pos, range, message.getClass().getSimpleName());
         getChannel().send(
                 PacketDistributor.NEAR.with(TargetPoint.p(pos.getX(), pos.getY(), pos.getZ(), range, world.dimension())),
                 message
@@ -86,20 +72,12 @@ public enum ModPackets {
         private final NetworkDirection direction;
 
         private PacketType(Class<T> type, Function<FriendlyByteBuf, T> factory, NetworkDirection direction) {
-            this.encoder = (packet, buf) -> {
-                LOGGER.info("[PACKET] Encoding packet: {}", type.getSimpleName());
-                packet.write(buf);
-            };
-            this.decoder = (buf) -> {
-                LOGGER.info("[PACKET] Decoding packet: {}", type.getSimpleName());
-                return factory.apply(buf);
-            };
+            this.encoder = (packet, buf) -> packet.write(buf);
+            this.decoder = factory::apply;
             this.handler = (packet, contextSupplier) -> {
                 Context context = contextSupplier.get();
-                LOGGER.info("[PACKET] Handling packet: {} on {}", type.getSimpleName(), context.getDirection());
                 if (packet.handle(context)) {
                     context.setPacketHandled(true);
-                    LOGGER.info("[PACKET] Packet {} marked as handled.", type.getSimpleName());
                 }
             };
             this.type = type;
@@ -107,7 +85,6 @@ public enum ModPackets {
         }
 
         private void register() {
-            LOGGER.info("[PACKET] Registering packet on channel: {}, type: {}, direction: {}", CHANNEL_NAME, type.getSimpleName(), direction);
             getChannel().messageBuilder(type, index++, direction)
                     .encoder(encoder)
                     .decoder(decoder)

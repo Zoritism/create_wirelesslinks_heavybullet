@@ -22,12 +22,6 @@ import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 
-/**
- * Рендерер Linked Controller'а. Полностью по образцу Create:
- * - Анимация приближения при активации (LerpedFloat equipProgress)
- * - Переключение модели (powered/обычная) по активности
- * - Анимация кнопок (LerpedFloat для каждой кнопки)
- */
 public class LinkedControllerItemRenderer extends CustomRenderedItemModelRenderer {
 
 	protected static final ResourceLocation POWERED = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/powered");

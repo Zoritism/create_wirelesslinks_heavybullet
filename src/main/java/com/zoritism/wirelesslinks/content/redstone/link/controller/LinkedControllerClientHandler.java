@@ -153,7 +153,7 @@ public class LinkedControllerClientHandler {
 				MODE = Mode.IDLE;
 				onReset();
 			}
-			// Важно: даже если игрока нет, анимация всё равно должна тикаться
+			// Даже если игрока нет, тик анимации нужен для визуализации
 			LinkedControllerItemRenderer.tick();
 			return;
 		}
