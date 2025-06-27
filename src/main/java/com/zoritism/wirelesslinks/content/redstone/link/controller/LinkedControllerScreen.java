@@ -64,6 +64,61 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		extraAreas = ImmutableList.of(new Rect2i(x + background.getWidth() + 4, y + background.getHeight() - 44, 64, 56));
 	}
 
+	// --- ВАЖНО: Подменяем count только для ghost-слотов ---
+	private final int GHOST_SLOTS = 12;
+	private int[] realCounts = new int[GHOST_SLOTS];
+
+	private void patchGhostCountsForVanillaRender(boolean ctrlDown) {
+		for (Slot slot : this.menu.slots) {
+			if (slot.index < 0 || slot.index >= GHOST_SLOTS)
+				continue;
+			if (slot.container != menu.ghostInventory)
+				continue;
+			ItemStack stack = slot.getItem();
+			if (!stack.isEmpty()) {
+				if (!ctrlDown) {
+					// Сохраним реальное значение
+					realCounts[slot.index] = stack.getCount();
+					stack.setCount(1);
+				} else {
+					// Вернуть реальное значение (если отличается)
+					int real = realCounts[slot.index];
+					if (real > 1 && stack.getCount() != real) {
+						stack.setCount(real);
+					}
+				}
+			}
+		}
+	}
+
+	private void restoreGhostCounts() {
+		for (Slot slot : this.menu.slots) {
+			if (slot.index < 0 || slot.index >= GHOST_SLOTS)
+				continue;
+			if (slot.container != menu.ghostInventory)
+				continue;
+			ItemStack stack = slot.getItem();
+			int real = realCounts[slot.index];
+			if (!stack.isEmpty() && real > 0 && stack.getCount() != real) {
+				stack.setCount(real);
+			}
+		}
+	}
+
+	@Override
+	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+		boolean ctrlDown = Screen.hasControlDown();
+		patchGhostCountsForVanillaRender(ctrlDown);
+		try {
+			super.render(graphics, mouseX, mouseY, partialTicks);
+			if (ctrlDown) {
+				renderGhostSlotCounts(graphics, mouseX, mouseY);
+			}
+		} finally {
+			restoreGhostCounts();
+		}
+	}
+
 	@Override
 	protected void renderBg(GuiGraphics graphics, float partialTicks, int mouseX, int mouseY) {
 		int invX = getLeftOfCentered(PLAYER_INVENTORY.getWidth());
@@ -84,35 +139,22 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		//     .render(graphics);
 	}
 
-	/**
-	 * Кастомный рендер количества предметов в ghost-слотах (только если зажат CTRL).
-	 * ВАЖНО: если CTRL не зажат — числа не рисуются вообще!
-	 */
+	// Кастомный рендер количества предметов в ghost-слотах (только если зажат CTRL)
 	protected void renderGhostSlotCounts(GuiGraphics graphics, int mouseX, int mouseY) {
-		if (!Screen.hasControlDown()) {
-			return;
-		}
 		Minecraft mc = Minecraft.getInstance();
 		for (Slot slot : this.menu.slots) {
-			// Ghost-слоты идут с index 0..11
-			if (slot.index < 0 || slot.index >= 12)
+			if (slot.index < 0 || slot.index >= GHOST_SLOTS)
 				continue;
 			if (slot.container != menu.ghostInventory)
 				continue;
 			ItemStack stack = slot.getItem();
-			if (!stack.isEmpty()) {
+			if (!stack.isEmpty() && realCounts[slot.index] > 1) {
 				int xPos = slot.x + leftPos;
 				int yPos = slot.y + topPos;
-				String count = String.valueOf(stack.getCount());
+				String count = String.valueOf(realCounts[slot.index]);
 				graphics.drawString(mc.font, count, xPos + 17 - mc.font.width(count), yPos + 9, 0xFFFFFF, true);
 			}
 		}
-	}
-
-	@Override
-	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-		super.render(graphics, mouseX, mouseY, partialTicks);
-		renderGhostSlotCounts(graphics, mouseX, mouseY);
 	}
 
 	@Override
