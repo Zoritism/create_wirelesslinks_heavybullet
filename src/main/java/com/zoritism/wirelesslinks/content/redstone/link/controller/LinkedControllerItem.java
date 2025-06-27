@@ -37,9 +37,6 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 
 	public static final int SLOT_COUNT = 12 * 2;
 
-	// --- Исправление: убедимся, что custom renderer используется только один раз ---
-	private static final LinkedControllerItemRenderer RENDERER = new LinkedControllerItemRenderer();
-
 	public LinkedControllerItem(Properties props) {
 		super(props);
 	}
@@ -141,12 +138,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	@OnlyIn(Dist.CLIENT)
 	@Override
 	public void initializeClient(Consumer<IClientItemExtensions> consumer) {
-		// --- Исправление: всегда возвращаем один и тот же renderer ---
-		consumer.accept(new IClientItemExtensions() {
-			@Override
-			public net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer getCustomRenderer() {
-				return RENDERER;
-			}
-		});
+		// Используем паттерн оригинала Create: регистрация через SimpleCustomRenderer
+		consumer.accept(com.zoritism.wirelesslinks.foundation.item.SimpleCustomRenderer.create(this, new LinkedControllerItemRenderer()));
 	}
 }
