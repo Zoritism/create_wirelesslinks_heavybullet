@@ -84,9 +84,14 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		//     .render(graphics);
 	}
 
-	// Кастомный рендер количества предметов в ghost-слотах (только если зажат CTRL)
+	/**
+	 * Кастомный рендер количества предметов в ghost-слотах (только если зажат CTRL).
+	 * ВАЖНО: если CTRL не зажат — числа не рисуются вообще!
+	 */
 	protected void renderGhostSlotCounts(GuiGraphics graphics, int mouseX, int mouseY) {
-		boolean showCount = Screen.hasControlDown();
+		if (!Screen.hasControlDown()) {
+			return;
+		}
 		Minecraft mc = Minecraft.getInstance();
 		for (Slot slot : this.menu.slots) {
 			// Ghost-слоты идут с index 0..11
@@ -98,10 +103,8 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 			if (!stack.isEmpty()) {
 				int xPos = slot.x + leftPos;
 				int yPos = slot.y + topPos;
-				if (showCount) {
-					String count = String.valueOf(stack.getCount());
-					graphics.drawString(mc.font, count, xPos + 17 - mc.font.width(count), yPos + 9, 0xFFFFFF, true);
-				}
+				String count = String.valueOf(stack.getCount());
+				graphics.drawString(mc.font, count, xPos + 17 - mc.font.width(count), yPos + 9, 0xFFFFFF, true);
 			}
 		}
 	}
