@@ -23,14 +23,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.items.ItemStackHandler;
 
 /**
- * Полностью корректная реализация скрытия количества в ghost-слотах:
- * - Если ctrl НЕ зажат, count=1 (или 0 для пустого) перед рендером vanilla,
- *   чтобы стандартный рендер не показывал число.
- * - Если ctrl зажат, count=реальное значение, а поверх рисуем своё число.
- * - Откат count после рендера, чтобы не поломать сохранение.
- * - Никаких побочных эффектов для ghostInventory.
+ * Корректная реализация: полностью скрывает стандартное число в ghost-слотах,
+ * показывая его только при зажатом ctrl.
  */
 public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedControllerMenu> {
 
@@ -41,8 +38,6 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	private IconButton confirmButton;
 
 	private static final int GHOST_SLOTS = 12;
-	// Для каждого ghost-слота храним backup реального значения count
-	private final int[] backupCounts = new int[GHOST_SLOTS];
 
 	public LinkedControllerScreen(LinkedControllerMenu menu, Inventory inv, Component title) {
 		super(menu, inv, title);
@@ -77,56 +72,50 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	}
 
 	/**
-	 * Перед рендером vanilla слотов подменяет count в ghost-слотах:
-	 * - если ctrl НЕ зажат, ставит count=1 (или 0 если пустой)
-	 * - если ctrl зажат, возвращает реальное значение
+	 * Подменяет count у ghostInventory только для рендера.
 	 */
-	private void patchGhostCountsForVanillaRender(boolean ctrlDown) {
-		for (Slot slot : this.menu.slots) {
-			if (slot.index < 0 || slot.index >= GHOST_SLOTS)
-				continue;
-			if (slot.container != menu.ghostInventory)
-				continue;
-			ItemStack stack = slot.getItem();
-			if (!stack.isEmpty()) {
-				int idx = slot.index;
-				backupCounts[idx] = stack.getCount();
-				if (!ctrlDown && stack.getCount() != 1)
-					stack.setCount(1);
-				else if (ctrlDown && stack.getCount() != backupCounts[idx])
-					stack.setCount(backupCounts[idx]);
+	private ItemStack[] backupGhostStacks = new ItemStack[GHOST_SLOTS];
+
+	private void patchGhostInventoryCountsForRender(boolean ctrlDown) {
+		ItemStackHandler ghost = menu.ghostInventory;
+		for (int i = 0; i < GHOST_SLOTS; i++) {
+			ItemStack orig = ghost.getStackInSlot(i);
+			backupGhostStacks[i] = orig.copy(); // backup!
+			if (!orig.isEmpty()) {
+				int needCount = ctrlDown ? backupGhostStacks[i].getCount() : 1;
+				if (orig.getCount() != needCount) {
+					ItemStack patched = orig.copy();
+					patched.setCount(needCount);
+					ghost.setStackInSlot(i, patched);
+				}
 			}
 		}
 	}
 
-	/**
-	 * После рендера возвращает реальное значение count в ghost-слотах.
-	 */
-	private void restoreGhostCounts() {
-		for (Slot slot : this.menu.slots) {
-			if (slot.index < 0 || slot.index >= GHOST_SLOTS)
-				continue;
-			if (slot.container != menu.ghostInventory)
-				continue;
-			ItemStack stack = slot.getItem();
-			int idx = slot.index;
-			if (!stack.isEmpty() && stack.getCount() != backupCounts[idx])
-				stack.setCount(backupCounts[idx]);
+	private void restoreGhostInventoryCountsAfterRender() {
+		ItemStackHandler ghost = menu.ghostInventory;
+		for (int i = 0; i < GHOST_SLOTS; i++) {
+			ItemStack current = ghost.getStackInSlot(i);
+			ItemStack backup = backupGhostStacks[i];
+			// Только если реально разные — иначе лишние события
+			if (!ItemStack.isSameItemSameTags(current, backup) || current.getCount() != backup.getCount()) {
+				ghost.setStackInSlot(i, backup.copy());
+			}
 		}
 	}
 
 	@Override
 	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
 		boolean ctrlDown = Screen.hasControlDown();
-		patchGhostCountsForVanillaRender(ctrlDown);
+		patchGhostInventoryCountsForRender(ctrlDown);
 		try {
 			super.render(graphics, mouseX, mouseY, partialTicks);
-			// Важно: рисуем цифры только если ctrlDown, но только если количество > 1
+			// Поверх рисуем count только если ctrlDown и count > 1
 			if (ctrlDown) {
 				renderGhostSlotCounts(graphics, mouseX, mouseY);
 			}
 		} finally {
-			restoreGhostCounts();
+			restoreGhostInventoryCountsAfterRender();
 		}
 	}
 
@@ -152,23 +141,26 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 
 	/**
 	 * Кастомный рендер количества предметов в ghost-слотах (только если ctrlDown).
-	 * Показываем count только если > 1 (как в Minecraft).
 	 */
 	protected void renderGhostSlotCounts(GuiGraphics graphics, int mouseX, int mouseY) {
 		Minecraft mc = Minecraft.getInstance();
-		for (Slot slot : this.menu.slots) {
-			if (slot.index < 0 || slot.index >= GHOST_SLOTS)
-				continue;
-			if (slot.container != menu.ghostInventory)
-				continue;
-			int idx = slot.index;
-			ItemStack stack = slot.getItem();
-			int realCount = backupCounts[idx];
-			if (!stack.isEmpty() && realCount > 1) {
-				int xPos = slot.x + leftPos;
-				int yPos = slot.y + topPos;
-				String count = String.valueOf(realCount);
-				graphics.drawString(mc.font, count, xPos + 17 - mc.font.width(count), yPos + 9, 0xFFFFFF, true);
+		ItemStackHandler ghost = menu.ghostInventory;
+		for (int i = 0; i < GHOST_SLOTS; i++) {
+			ItemStack stack = ghost.getStackInSlot(i);
+			if (!stack.isEmpty() && backupGhostStacks[i].getCount() > 1) {
+				Slot slot = null;
+				for (Slot s : menu.slots) {
+					if (s.container == ghost && s.getSlotIndex() == i) {
+						slot = s;
+						break;
+					}
+				}
+				if (slot != null) {
+					int xPos = slot.x + leftPos;
+					int yPos = slot.y + topPos;
+					String count = String.valueOf(backupGhostStacks[i].getCount());
+					graphics.drawString(mc.font, count, xPos + 17 - mc.font.width(count), yPos + 9, 0xFFFFFF, true);
+				}
 			}
 		}
 	}
