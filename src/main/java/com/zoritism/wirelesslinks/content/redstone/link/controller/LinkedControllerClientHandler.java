@@ -47,9 +47,6 @@ public class LinkedControllerClientHandler {
 	private static boolean f5Pressed = false;
 	private static ItemStack lastHeldController = ItemStack.EMPTY;
 
-	// Для временного флага инвалидации (см. ниже)
-	private static boolean forceRedrawNextTick = false;
-
 	public static void toggleBindMode(BlockPos location) {
 		if (MODE == Mode.IDLE) {
 			MODE = Mode.BIND;
@@ -143,17 +140,6 @@ public class LinkedControllerClientHandler {
 					}
 
 					if (changed) {
-						Minecraft mc = Minecraft.getInstance();
-						if (mc.player != null) {
-							for (ItemStack hand : new ItemStack[]{mc.player.getMainHandItem(), mc.player.getOffhandItem()}) {
-								if (hand.is(ModItems.LINKED_CONTROLLER.get())) {
-									CompoundTag tag = hand.getOrCreateTag();
-									tag.putInt("wl_force_redraw", (int)(System.nanoTime() & 0xFFFFFFF));
-									// уникальное значение чтобы MC гарантированно пересоздал модель
-									forceRedrawNextTick = true;
-								}
-							}
-						}
 						updateControllerPoweredTag(!currentlyPressed.isEmpty());
 					}
 					return;
@@ -175,16 +161,6 @@ public class LinkedControllerClientHandler {
 			// Даже если игрока нет, тик анимации нужен для визуализации
 			LinkedControllerItemRenderer.tick();
 			return;
-		}
-
-		// Очищаем временный NBT-флаг для принудительного обновления рендера (только 1 тик)
-		if (forceRedrawNextTick) {
-			for (ItemStack hand : new ItemStack[]{player.getMainHandItem(), player.getOffhandItem()}) {
-				if (hand.is(ModItems.LINKED_CONTROLLER.get()) && hand.hasTag() && hand.getTag().contains("wl_force_redraw")) {
-					hand.getTag().remove("wl_force_redraw");
-				}
-			}
-			forceRedrawNextTick = false;
 		}
 
 		boolean isController = isControllerInEitherHand();
@@ -362,6 +338,7 @@ public class LinkedControllerClientHandler {
 		poseStack.popPose();
 	}
 
+	// Главное изменение: всегда обновляем уникальный тег при любом изменении powered
 	private static void updateControllerPoweredTag(boolean powered) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null) return;
@@ -373,6 +350,8 @@ public class LinkedControllerClientHandler {
 					if (stack.hasTag())
 						stack.getTag().remove("Powered");
 				}
+				// ВСЕГДА обновляем уникальный тег: это заставляет MC пересоздать визуализацию
+				stack.getOrCreateTag().putLong("wl_force_redraw", System.nanoTime());
 			}
 		}
 	}
