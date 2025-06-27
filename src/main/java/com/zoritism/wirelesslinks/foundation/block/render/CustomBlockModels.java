@@ -1,4 +1,4 @@
-package com.zoritism.wirelesslinks.foundation.item.render;
+package com.zoritism.wirelesslinks.foundation.block.render;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -10,20 +10,20 @@ import com.tterrag.registrate.util.nullness.NonNullFunction;
 
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 import net.minecraftforge.registries.ForgeRegistries;
 
-public class CustomItemModels {
+public class CustomBlockModels {
 
 	private final Multimap<ResourceLocation, NonNullFunction<BakedModel, ? extends BakedModel>> modelFuncs = MultimapBuilder.hashKeys().arrayListValues().build();
-	private final Map<Item, NonNullFunction<BakedModel, ? extends BakedModel>> finalModelFuncs = new IdentityHashMap<>();
+	private final Map<Block, NonNullFunction<BakedModel, ? extends BakedModel>> finalModelFuncs = new IdentityHashMap<>();
 	private boolean funcsLoaded = false;
 
-	public void register(ResourceLocation item, NonNullFunction<BakedModel, ? extends BakedModel> func) {
-		modelFuncs.put(item, func);
+	public void register(ResourceLocation block, NonNullFunction<BakedModel, ? extends BakedModel> func) {
+		modelFuncs.put(block, func);
 	}
 
-	public void forEach(NonNullBiConsumer<Item, NonNullFunction<BakedModel, ? extends BakedModel>> consumer) {
+	public void forEach(NonNullBiConsumer<Block, NonNullFunction<BakedModel, ? extends BakedModel>> consumer) {
 		loadEntriesIfMissing();
 		finalModelFuncs.forEach(consumer);
 	}
@@ -38,8 +38,8 @@ public class CustomItemModels {
 	private void loadEntries() {
 		finalModelFuncs.clear();
 		modelFuncs.asMap().forEach((location, funcList) -> {
-			Item item = ForgeRegistries.ITEMS.getValue(location);
-			if (item == null) {
+			Block block = ForgeRegistries.BLOCKS.getValue(location);
+			if (block == null) {
 				return;
 			}
 
@@ -52,7 +52,7 @@ public class CustomItemModels {
 				}
 			}
 
-			finalModelFuncs.put(item, finalFunc);
+			finalModelFuncs.put(block, finalFunc);
 		});
 	}
 
