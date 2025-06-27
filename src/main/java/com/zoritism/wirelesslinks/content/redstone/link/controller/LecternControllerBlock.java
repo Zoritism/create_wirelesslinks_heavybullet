@@ -44,7 +44,7 @@ public class LecternControllerBlock extends LecternBlock {
         ItemStack held = player.getItemInHand(hand);
         ItemStack lecternController = lectern.getController();
 
-        // Теперь просто ПКМ (без шифта) вставляет контроллер
+        // Вставить контроллер обычным ПКМ если lectern пустой
         if (lecternController.isEmpty() && held.getItem() == ModItems.LINKED_CONTROLLER.get()) {
             if (!level.isClientSide) {
                 ItemStack insert = player.isCreative() ? held.copy() : held.split(1);
@@ -54,21 +54,18 @@ public class LecternControllerBlock extends LecternBlock {
             return InteractionResult.SUCCESS;
         }
 
-        // SHIFT+ПКМ — извлечь контроллер и заменить на обычный lectern
+        // SHIFT+ПКМ — извлечь контроллер, очистить NBT и заменить на обычный lectern
         if (player.isShiftKeyDown() && !lecternController.isEmpty()) {
             if (!level.isClientSide) {
                 lectern.dropController(state);
-
-                // очищаем NBT после извлечения контроллера
-                lectern.setController(ItemStack.EMPTY);
+                lectern.setController(ItemStack.EMPTY); // ОЧИЩАЕМ NBT!
                 lectern.sendData();
-
                 replaceWithLectern(state, level, pos);
             }
             return InteractionResult.SUCCESS;
         }
 
-        // ПКМ по lectern с уже вставленным контроллером — активировать управление
+        // ПКМ — активировать управление
         if (!lecternController.isEmpty()) {
             if (!level.isClientSide)
                 lectern.tryStartUsing(player);
@@ -84,9 +81,7 @@ public class LecternControllerBlock extends LecternBlock {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof LecternControllerBlockEntity lectern && !lectern.getController().isEmpty()) {
                 lectern.dropController(oldState);
-
-                // очищаем NBT после извлечения контроллера
-                lectern.setController(ItemStack.EMPTY);
+                lectern.setController(ItemStack.EMPTY); // ОЧИЩАЕМ NBT при удалении блока
             }
             super.onRemove(oldState, level, pos, newState, isMoving);
         }

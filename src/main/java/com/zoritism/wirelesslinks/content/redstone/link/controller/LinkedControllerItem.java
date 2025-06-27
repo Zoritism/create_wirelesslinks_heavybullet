@@ -45,24 +45,8 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		BlockPos pos = ctx.getClickedPos();
 		BlockState state = level.getBlockState(pos);
 
-		// Делегация логики блоку лекторна — только инициируем действия!
+		// Если клик по нашему лекторну — всегда отдаём обработку блоку!
 		if (state.getBlock() == ModBlocks.LECTERN_CONTROLLER.get()) {
-			// Shift+ПКМ по своему лекторну — инициируем извлечение через блок
-			if (player.isShiftKeyDown()) {
-				if (!level.isClientSide) {
-					var be = level.getBlockEntity(pos);
-					if (be instanceof LecternControllerBlockEntity lectern) {
-						ItemStack lecternController = lectern.getController();
-						if (!lecternController.isEmpty()) {
-							lectern.dropController(state);
-							lectern.sendData();
-							return InteractionResult.SUCCESS;
-						}
-					}
-				}
-				return InteractionResult.SUCCESS;
-			}
-			// Обычный ПКМ по своему лекторну — передаём управление блоку (возвращаем PASS)
 			return InteractionResult.PASS;
 		}
 

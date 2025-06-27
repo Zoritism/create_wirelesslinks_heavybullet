@@ -25,18 +25,12 @@ import net.minecraftforge.fml.DistExecutor;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Реализация полностью по образцу Create.
- * - Работа с контроллером через NBT
- * - Управление пользователем (UUID)
- * - Корректная синхронизация и тик
- */
 public class LecternControllerBlockEntity extends SmartBlockEntity {
 
     private CompoundTag controllerNbt = new CompoundTag();
     private UUID user;
-    private UUID prevUser; // только клиент
-    private boolean deactivatedThisTick; // только сервер
+    private UUID prevUser;
+    private boolean deactivatedThisTick;
 
     public LecternControllerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -64,17 +58,12 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
     @Override
     protected void read(CompoundTag tag, boolean clientPacket) {
         super.read(tag, clientPacket);
-        // Миграция старых данных
-        if (tag.contains("Controller")) {
-            controllerNbt = ItemStack.of(tag.getCompound("Controller")).getTag();
-        } else {
-            controllerNbt = tag.getCompound("ControllerData");
-        }
+        controllerNbt = tag.getCompound("ControllerData");
         user = tag.hasUUID("User") ? tag.getUUID("User") : null;
     }
 
     /**
-     * Получить предмет контроллера с сохранением NBT.
+     * Получить предмет контроллера, лежащий в лекторне. Полностью копирует NBT.
      */
     public ItemStack getController() {
         if (controllerNbt == null || controllerNbt.isEmpty())
@@ -86,10 +75,14 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
 
     /**
      * Установить контроллер с NBT в лекторн.
+     * Если newController пустой — очищаем NBT.
      */
     public void setController(ItemStack newController) {
         if (newController != null && newController.getItem() == ModItems.LINKED_CONTROLLER.get()) {
             controllerNbt = newController.hasTag() ? newController.getTag().copy() : new CompoundTag();
+            sendData();
+        } else if (newController == null || newController.isEmpty()) {
+            controllerNbt = new CompoundTag();
             sendData();
         }
     }
@@ -106,7 +99,7 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
      * Начать использование контроллера через лекторн (если никто не использует).
      */
     public void tryStartUsing(Player player) {
-        if (!deactivatedThisTick && !hasUser() && !playerIsUsingLectern(player) && playerInRange(player, level, worldPosition))
+        if (!deactivatedThisTick && !hasUser() && playerInRange(player, level, worldPosition))
             startUsing(player);
     }
 
@@ -179,6 +172,7 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
 
     /**
      * Извлечь контроллер из лекторна и выбросить в мир (с сохранением NBT).
+     * После извлечения обязательно очищаем NBT!
      */
     public void dropController(BlockState state) {
         if (controllerNbt == null || controllerNbt.isEmpty())
@@ -191,7 +185,7 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
         if (playerEntity instanceof Player)
             stopUsing((Player) playerEntity);
 
-        // Определяем направление выбрасывания (по FACING или HORIZONTAL_FACING)
+        // Исправлено: используем HORIZONTAL_FACING для корректного направления
         Direction dir = null;
         if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
             dir = state.getValue(BlockStateProperties.HORIZONTAL_FACING);
@@ -207,7 +201,7 @@ public class LecternControllerBlockEntity extends SmartBlockEntity {
         ItemEntity itemEntity = new ItemEntity(level, x, y, z, getController());
         itemEntity.setDefaultPickUpDelay();
         level.addFreshEntity(itemEntity);
-        controllerNbt = new CompoundTag();
+        controllerNbt = new CompoundTag(); // Очищаем NBT после извлечения контроллера!
         sendData();
     }
 
