@@ -5,12 +5,11 @@ import com.zoritism.wirelesslinks.foundation.item.PartialItemModelRenderer;
 import com.zoritism.wirelesslinks.foundation.item.CustomRenderedItemModel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.core.Direction;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 
 /**
  * Рендерит Linked Controller на LecternControllerBlock аналогично Create.
@@ -21,45 +20,36 @@ public class LecternControllerRenderer implements BlockEntityRenderer<LecternCon
     public LecternControllerRenderer(BlockEntityRendererProvider.Context context) {}
 
     @Override
-    public void render(LecternControllerBlockEntity be, float partialTicks, PoseStack ps,
-                       MultiBufferSource buf, int light, int overlay) {
-        ItemStack controller = be.getController();
-        if (controller.isEmpty())
+    public void render(LecternControllerBlockEntity be, float partialTicks, PoseStack ms,
+                       MultiBufferSource buffer, int light, int overlay) {
+
+        // ВСЕГДА рендерим предмет-контроллер (как в Create)
+        ItemStack stack = be.getController();
+        if (stack.isEmpty())
             return;
 
-        BlockState state = be.getBlockState();
-        Direction facing = Direction.NORTH;
-        // Используем horizontal_facing для корректного поворота, как в Create
-        if (state.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING))
-            facing = state.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING);
-
-        ps.pushPose();
-
-        // Позиционирование и наклон контроллера-книги на лекторне (по образцу Create)
-        ps.translate(0.5, 1.45, 0.5);
-        ps.mulPose(com.mojang.math.Axis.YP.rotationDegrees(horizontalAngle(facing) - 90));
-        ps.translate(0.28, 0, 0);
-        ps.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-22.0f));
-
-        // Используем custom renderer из LinkedControllerItemRenderer
-        CustomRenderedItemModel model = (CustomRenderedItemModel) Minecraft.getInstance()
-                .getItemRenderer().getModel(controller, be.getLevel(), null, 0);
-
-        PartialItemModelRenderer renderer = PartialItemModelRenderer.of(controller,
-                ItemDisplayContext.NONE, ps, buf, overlay);
-
-        // Определяем активность и депрессию (нажатие) по LecternControllerBlockEntity
+        ItemDisplayContext transformType = ItemDisplayContext.NONE;
+        CustomRenderedItemModel mainModel = (CustomRenderedItemModel) Minecraft.getInstance()
+                .getItemRenderer()
+                .getModel(stack, be.getLevel(), null, 0);
+        PartialItemModelRenderer renderer = PartialItemModelRenderer.of(stack, transformType, ms, buffer, overlay);
         boolean active = be.hasUser();
-        boolean renderDepression = false;
-        if (Minecraft.getInstance().player != null) {
-            renderDepression = be.isUsedBy(Minecraft.getInstance().player);
+        boolean renderDepression = Minecraft.getInstance().player != null && be.isUsedBy(Minecraft.getInstance().player);
+
+        Direction facing = Direction.NORTH;
+        if (be.getBlockState().hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING)) {
+            facing = be.getBlockState().getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING);
         }
 
-        LinkedControllerItemRenderer.renderInLectern(
-                controller, model, renderer, ItemDisplayContext.NONE, ps, light, active, renderDepression
-        );
+        ms.pushPose();
+        ms.translate(0.5, 1.45, 0.5);
+        ms.mulPose(com.mojang.math.Axis.YP.rotationDegrees(horizontalAngle(facing) - 90));
+        ms.translate(0.28, 0, 0);
+        ms.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-22.0f));
 
-        ps.popPose();
+        LinkedControllerItemRenderer.renderInLectern(stack, mainModel, renderer, transformType, ms, light, active, renderDepression);
+
+        ms.popPose();
     }
 
     // Вспомогательный метод для угла поворота по горизонтали (аналог AngleHelper.horizontalAngle)

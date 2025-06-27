@@ -3,64 +3,40 @@ package com.zoritism.wirelesslinks.content.redstone.link.controller;
 import com.zoritism.wirelesslinks.registry.ModBlockEntities;
 import com.zoritism.wirelesslinks.registry.ModItems;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.EntityBlock;
-import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LecternBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.fml.DistExecutor;
-
+import net.minecraft.world.phys.HitResult;
 import javax.annotation.Nullable;
 
-public class LecternControllerBlock extends Block implements EntityBlock {
+public class LecternControllerBlock extends LecternBlock {
 
-    // Используем HORIZONTAL_FACING вместо FACING для совместимости с vanilla Lectern
-    public static final DirectionProperty HORIZONTAL_FACING = BlockStateProperties.HORIZONTAL_FACING;
-
-    public LecternControllerBlock(Properties props) {
-        super(props);
+    public LecternControllerBlock(Properties properties) {
+        super(properties);
         registerDefaultState(defaultBlockState()
-                .setValue(BlockStateProperties.POWERED, false)
-                .setValue(HORIZONTAL_FACING, Direction.NORTH));
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(BlockStateProperties.POWERED, HORIZONTAL_FACING);
-    }
-
-    @Override
-    public RenderShape getRenderShape(BlockState state) {
-        return RenderShape.MODEL;
+                .setValue(FACING, net.minecraft.core.Direction.NORTH)
+                .setValue(HAS_BOOK, true)
+                .setValue(POWERED, false));
     }
 
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new LecternControllerBlockEntity(ModBlockEntities.LECTERN_CONTROLLER.get(), pos, state);
+        return ModBlockEntities.LECTERN_CONTROLLER.get().create(pos, state);
     }
 
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                  InteractionHand hand, BlockHitResult hit) {
-
         BlockEntity be = level.getBlockEntity(pos);
         if (!(be instanceof LecternControllerBlockEntity lectern))
             return InteractionResult.PASS;
@@ -68,8 +44,8 @@ public class LecternControllerBlock extends Block implements EntityBlock {
         ItemStack held = player.getItemInHand(hand);
         ItemStack lecternController = lectern.getController();
 
-        // 1. Вставить контроллер в лекторн (если его нет) - только сервер!
-        if (lecternController.isEmpty() && held.is(ModItems.LINKED_CONTROLLER.get())) {
+        // Вставить контроллер
+        if (lecternController.isEmpty() && held.getItem() == ModItems.LINKED_CONTROLLER.get()) {
             if (!level.isClientSide) {
                 ItemStack insert = player.isCreative() ? held.copy() : held.split(1);
                 lectern.setController(insert);
@@ -78,25 +54,20 @@ public class LecternControllerBlock extends Block implements EntityBlock {
             return InteractionResult.SUCCESS;
         }
 
-        // 2. CTRL+ПКМ (извлечь контроллер)
+        // SHIFT+ПКМ — извлечь контроллер и заменить на обычный lectern
         if (player.isShiftKeyDown() && !lecternController.isEmpty()) {
             if (!level.isClientSide) {
                 lectern.dropController(state);
                 lectern.sendData();
+                replaceWithLectern(state, level, pos);
             }
             return InteractionResult.SUCCESS;
         }
 
-        // 3. ПКМ — активировать управление (если контроллер уже есть)
+        // ПКМ — активировать управление
         if (!lecternController.isEmpty()) {
             if (!level.isClientSide)
                 lectern.tryStartUsing(player);
-            // На клиенте сразу активируем режим управления (через ClientHandler)
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
-                LecternControllerBlockEntity beClient = (LecternControllerBlockEntity) level.getBlockEntity(pos);
-                if (beClient != null)
-                    beClient.tryStartUsing(player);
-            });
             return InteractionResult.SUCCESS;
         }
 
@@ -115,41 +86,29 @@ public class LecternControllerBlock extends Block implements EntityBlock {
     }
 
     @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos,
-                                Block block, BlockPos fromPos, boolean isMoving) {
-        // Реакция на сигнал/энергию при необходимости
+    public int getAnalogOutputSignal(BlockState state, Level world, BlockPos pos) {
+        return 15;
+    }
+
+    public void replaceLectern(BlockState lecternState, Level world, BlockPos pos, ItemStack controller) {
+        world.setBlockAndUpdate(pos, defaultBlockState()
+                .setValue(FACING, lecternState.getValue(FACING))
+                .setValue(HAS_BOOK, true)
+                .setValue(POWERED, lecternState.getValue(POWERED)));
+        BlockEntity be = world.getBlockEntity(pos);
+        if (be instanceof LecternControllerBlockEntity lectern)
+            lectern.setController(controller);
+    }
+
+    public void replaceWithLectern(BlockState state, Level world, BlockPos pos) {
+        world.setBlockAndUpdate(pos, Blocks.LECTERN.defaultBlockState()
+                .setValue(FACING, state.getValue(FACING))
+                .setValue(HAS_BOOK, state.getValue(HAS_BOOK))
+                .setValue(POWERED, state.getValue(POWERED)));
     }
 
     @Override
-    public boolean hasAnalogOutputSignal(BlockState state) {
-        return false;
-    }
-
-    @Override
-    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
-        return 0;
-    }
-
-    @Override
-    public boolean isSignalSource(BlockState state) {
-        return false;
-    }
-
-    // Для корректного взаимодействия с ItemEntity при извлечении контроллера
-    protected void spawnAsEntity(Level level, BlockPos pos, ItemStack stack, BlockState state) {
-        Direction dir = state.hasProperty(HORIZONTAL_FACING)
-                ? state.getValue(HORIZONTAL_FACING)
-                : Direction.NORTH;
-        double x = pos.getX() + 0.5 + 0.25 * dir.getStepX();
-        double y = pos.getY() + 1;
-        double z = pos.getZ() + 0.5 + 0.25 * dir.getStepZ();
-        ItemEntity itementity = new ItemEntity(level, x, y, z, stack);
-        itementity.setDefaultPickUpDelay();
-        level.addFreshEntity(itementity);
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    public boolean shouldDisplayFluidOverlay(BlockState state, BlockGetter world, BlockPos pos, net.minecraft.world.level.material.FluidState fluidState) {
-        return false;
+    public ItemStack getCloneItemStack(BlockState state, HitResult target, BlockGetter world, BlockPos pos, Player player) {
+        return Blocks.LECTERN.getCloneItemStack(state, target, world, pos, player);
     }
 }
