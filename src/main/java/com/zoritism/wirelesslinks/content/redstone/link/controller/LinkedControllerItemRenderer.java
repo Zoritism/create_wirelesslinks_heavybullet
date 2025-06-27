@@ -91,6 +91,8 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 
 		ms.pushPose();
 
+		boolean powered = false;
+
 		if (renderType == RenderType.NORMAL) {
 			Minecraft mc = Minecraft.getInstance();
 			boolean rightHanded = mc.options.mainHand().get() == HumanoidArm.RIGHT;
@@ -118,16 +120,18 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 					active = true;
 			}
 
-			active &= LinkedControllerClientHandler.MODE != Mode.IDLE;
+			// powered теперь зависит от: режим ACTIVE и есть нажатые кнопки
+			powered = LinkedControllerClientHandler.MODE == Mode.ACTIVE &&
+					!LinkedControllerClientHandler.currentlyPressed.isEmpty();
 			renderDepression = true;
 		}
 
-		BakedModel base = active
+		BakedModel base = powered
 				? Minecraft.getInstance().getModelManager().getModel(POWERED)
 				: model.getOriginalModel();
 		renderer.render(base, light);
 
-		if (!active) {
+		if (!active && !powered) {
 			ms.popPose();
 			return;
 		}
