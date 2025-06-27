@@ -104,6 +104,7 @@ public class LinkedControllerClientHandler {
 		selectedLocation = BlockPos.ZERO;
 		lecternPos = null;
 		f5Pressed = false;
+		LinkedControllerItemRenderer.resetButtons();
 	}
 
 	@SubscribeEvent
@@ -152,6 +153,8 @@ public class LinkedControllerClientHandler {
 				MODE = Mode.IDLE;
 				onReset();
 			}
+			// Важно: даже если игрока нет, анимация всё равно должна тикаться
+			LinkedControllerItemRenderer.tick();
 			return;
 		}
 
@@ -166,11 +169,7 @@ public class LinkedControllerClientHandler {
 		}
 
 		lastHeldController = isController ? getControllerFromEitherHand(player) : ItemStack.EMPTY;
-
-		// === ДОБАВЛЕНО: вызывать тик рендера контроллера ===
 		LinkedControllerItemRenderer.tick();
-		// === КОНЕЦ ДОБАВЛЕНИЯ ===
-
 		tick();
 	}
 
@@ -230,6 +229,7 @@ public class LinkedControllerClientHandler {
 	public static void tick() {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
+		// Анимация должна тикаться всегда, но остальная логика только в ACTIVE
 		if (MODE != Mode.ACTIVE || !isControllerInEitherHand())
 			return;
 		if (packetCooldown > 0)
