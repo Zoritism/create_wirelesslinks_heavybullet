@@ -19,8 +19,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.LecternBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -29,13 +27,10 @@ import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.network.NetworkHooks;
 
-import java.util.List;
-import java.util.UUID;
 import java.util.function.Consumer;
 
 @SuppressWarnings("deprecation")
 public class LinkedControllerItem extends Item implements MenuProvider {
-
 	public static final int SLOT_COUNT = 12 * 2;
 
 	public LinkedControllerItem(Properties props) {
@@ -50,54 +45,52 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		BlockPos pos = ctx.getClickedPos();
 		BlockState state = level.getBlockState(pos);
 
-		// 1. Если клик по нашему LecternControllerBlock
+		// Взаимодействие только с нашим лекторном
 		if (state.getBlock() == ModBlocks.LECTERN_CONTROLLER.get()) {
 			if (!level.isClientSide) {
 				var be = level.getBlockEntity(pos);
 				if (be instanceof LecternControllerBlockEntity lectern) {
 					ItemStack lecternController = lectern.getController();
-					// a. Если лекторн пустой — вставляем контроллер
+
+					// Shift+ПКМ: извлечь контроллер
+					if (player.isShiftKeyDown()) {
+						if (!lecternController.isEmpty()) {
+							lectern.dropController(state);
+							lectern.sendData();
+							return InteractionResult.SUCCESS;
+						}
+						return InteractionResult.PASS;
+					}
+
+					// Вставить контроллер, если лекторн пустой
 					if (lecternController.isEmpty()) {
 						ItemStack insert = player.isCreative() ? stack.copy() : stack.split(1);
 						lectern.setController(insert);
 						lectern.sendData();
 						return InteractionResult.SUCCESS;
 					}
-					// b. Если лекторн уже содержит контроллер и игрок рядом — переходим в режим управления
+
+					// Режим управления: если контроллер уже есть и игрок рядом
 					if (!lecternController.isEmpty() && isPlayerInLecternRange(player, pos)) {
 						lectern.tryStartUsing(player);
 						return InteractionResult.SUCCESS;
 					}
 				}
 			}
-			// На клиенте не обрабатываем (всё делается через сервер)
 			return InteractionResult.SUCCESS;
 		}
 
-		// 2. Если клик по обычному редстоун линк — прежнее поведение
-		if (player.mayBuild()) {
-			if (player.isShiftKeyDown()) {
-				// Здесь мог бы быть swapControllers для лекторна, если реализовано
-			} else {
-				if (state.getBlock() instanceof RedstoneLinkBlock) {
-					if (level.isClientSide)
-						DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> LinkedControllerClientHandler.toggleBindMode(pos));
-					player.getCooldowns().addCooldown(this, 2);
-					return InteractionResult.SUCCESS;
-				}
-
-				if (state.is(Blocks.LECTERN) && !state.getValue(LecternBlock.HAS_BOOK)) {
-					if (!level.isClientSide) {
-						ItemStack copy = player.isCreative() ? stack.copy() : stack.split(1);
-						LecternBlock.tryPlaceBook(player, level, pos, state, copy);
-					}
-					return InteractionResult.SUCCESS;
-				}
+		// Поведение для других блоков (редстоун-линк и т.п.)
+		if (player.mayBuild() && !player.isShiftKeyDown()) {
+			if (state.getBlock() instanceof RedstoneLinkBlock) {
+				if (level.isClientSide)
+					DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> LinkedControllerClientHandler.toggleBindMode(pos));
+				player.getCooldowns().addCooldown(this, 2);
+				return InteractionResult.SUCCESS;
 			}
 		}
 
-		// 3. Всё остальное — стандартное поведение (не переходить в режим управления!)
-		return this.use(level, player, ctx.getHand()).getResult();
+		return InteractionResult.PASS;
 	}
 
 	@Override
@@ -111,9 +104,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 			return InteractionResultHolder.success(stack);
 		}
 
-		// --- ВНИМАНИЕ! ---
-		// Теперь переход в режим управления происходит только если НЕ целимся в лекторн!
-		// (Собственно, тут это уже не обработается, т.к. если клик был по лекторну — обработка выше.)
+		// НЕ переходить в режим управления если целимся в лекторн (это уже обработает onItemUseFirst!)
 		if (!player.isShiftKeyDown()) {
 			if (level.isClientSide)
 				DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> LinkedControllerClientHandler::toggle);
@@ -148,9 +139,6 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		controller.getOrCreateTag().put("Items", inv.serializeNBT());
 	}
 
-	/**
-	 * Возвращает Couple<ItemStack> для передачи в сетевые обработчики (по Create).
-	 */
 	public static Couple<ItemStack> toFrequency(ItemStack controller, int logicalSlot) {
 		ItemStackHandler inv = getFrequencyInventory(controller);
 		int aIdx = logicalSlot * 2;
