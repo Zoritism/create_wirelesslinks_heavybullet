@@ -128,13 +128,27 @@ public class LinkedControllerClientHandler {
 						mapping.setDown(false);
 					} catch (Exception ignored) {}
 
+					boolean changed = false;
 					if (event.getAction() == GLFW.GLFW_PRESS) {
-						if (currentlyPressed.add(i)) {
-							sendControlChannelPacket(i, true);
-						}
+						changed = currentlyPressed.add(i);
+						if (changed) sendControlChannelPacket(i, true);
 					} else if (event.getAction() == GLFW.GLFW_RELEASE) {
-						if (currentlyPressed.remove(i)) {
-							sendControlChannelPacket(i, false);
+						changed = currentlyPressed.remove(i);
+						if (changed) sendControlChannelPacket(i, false);
+					}
+
+					if (changed) {
+						Minecraft mc = Minecraft.getInstance();
+						if (mc.player != null) {
+							// Форсируем обновление предмета в руках и офф-хэнде
+							ItemStack main = mc.player.getMainHandItem();
+							ItemStack off = mc.player.getOffhandItem();
+							if (main.is(ModItems.LINKED_CONTROLLER.get())) {
+								main.setPopTime(5);
+							}
+							if (off.is(ModItems.LINKED_CONTROLLER.get())) {
+								off.setPopTime(5);
+							}
 						}
 					}
 					return;
