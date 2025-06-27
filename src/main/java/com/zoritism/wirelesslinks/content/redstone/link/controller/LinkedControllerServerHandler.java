@@ -16,18 +16,23 @@ import java.util.UUID;
  * - Каждая кнопка/канал = ManualFrequencyEntry, обновляется при нажатии, удаляется при отпускании.
  * - tick() очищает только сигналы, если release-пакет вообще не пришёл (например, клиент вылетел).
  * - Главное исправление: отпускание кнопки (pressed=false) МГНОВЕННО удаляет сигнал, независимо от таймера.
+ * - Теперь реализован "предохранитель" (watchdog): если игрок убрал/выбросил контроллер, сигнал сбрасывается через timeout.
  */
 public class LinkedControllerServerHandler {
 
+	// Таймаут в тиках (1.5 секунды при 20 TPS)
 	public static final int TIMEOUT = 30;
 
-	/** Map: UUID игрока -> список ManualFrequencyEntry (активные каналы контроллера) */
+	/**
+	 * Map: UUID игрока -> список ManualFrequencyEntry (активные каналы контроллера)
+	 */
 	private static final Map<UUID, Collection<ManualFrequencyEntry>> receivedInputs = new HashMap<>();
 
 	/**
 	 * Обновление состояний сигналов контроллеров.
 	 * Вызывать в серверном тике (ServerTickEvent, либо world.tick()).
 	 * Очищает "залипшие" сигналы (например, если release-пакет не пришёл вообще).
+	 * Также работает как "watchdog": если игрок убрал/выбросил контроллер, сигнал сбрасывается по таймауту.
 	 */
 	public static void tick(Level level) {
 		Iterator<Entry<UUID, Collection<ManualFrequencyEntry>>> mainIt = receivedInputs.entrySet().iterator();
@@ -40,7 +45,7 @@ public class LinkedControllerServerHandler {
 				ManualFrequencyEntry freqEntry = subIt.next();
 				freqEntry.decrement();
 				if (!freqEntry.isAlive()) {
-					// Удаляем только если не был принудительно удалён через release
+					// Удаляем сигнал и виртуальный передатчик, если не был продлён вовремя
 					LinkHandler.get(level).removeVirtualTransmitter(freqEntry.getFrequency(), entry.getKey());
 					subIt.remove();
 				}
