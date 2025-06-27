@@ -15,10 +15,14 @@ import com.zoritism.wirelesslinks.foundation.utility.ControlsUtil;
 import com.zoritism.wirelesslinks.foundation.utility.CreateLang;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 
 public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedControllerMenu> {
 
@@ -45,8 +49,8 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		resetButton = new IconButton(x + background.getWidth() - 62, y + background.getHeight() - 24, AllIcons.I_TRASH);
 		resetButton.withCallback(() -> {
 			menu.clearContents();
-			menu.saveData(menu.contentHolder); // <--- обязательно! сохраняем изменения после очистки
-			menu.sendClearPacket(); // если реализовано — отправить на сервер для sync
+			menu.saveData(menu.contentHolder);
+			menu.sendClearPacket();
 		});
 		confirmButton = new IconButton(x + background.getWidth() - 33, y + background.getHeight() - 24, AllIcons.I_CONFIRM);
 		confirmButton.withCallback(() -> {
@@ -65,7 +69,6 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		int invX = getLeftOfCentered(PLAYER_INVENTORY.getWidth());
 		int invY = topPos + background.getHeight() + 4;
 
-		// ОБЯЗАТЕЛЬНО: сначала текстура инвентаря игрока!
 		PLAYER_INVENTORY.render(graphics, invX, invY);
 		renderPlayerInventory(graphics, invX, invY);
 
@@ -79,6 +82,32 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		// GuiGameElement.of(menu.contentHolder).<GuiGameElement.GuiRenderBuilder>at(x + background.getWidth() - 4, y + background.getHeight() - 56, -200)
 		//     .scale(5)
 		//     .render(graphics);
+	}
+
+	// Кастомный рендер количества предметов в ghost-слотах (только если зажат CTRL)
+	protected void renderGhostSlotCounts(GuiGraphics graphics, int mouseX, int mouseY) {
+		boolean showCount = Screen.hasControlDown();
+		Minecraft mc = Minecraft.getInstance();
+		for (Slot slot : this.menu.slots) {
+			// Ghost-слоты идут с index 0..11
+			if (slot.index < 0 || slot.index >= 12)
+				continue;
+			if (slot.container != menu.ghostInventory)
+				continue;
+			ItemStack stack = slot.getItem();
+			if (!stack.isEmpty() && showCount) {
+				int xPos = slot.x + leftPos;
+				int yPos = slot.y + topPos;
+				String count = String.valueOf(stack.getCount());
+				graphics.drawString(mc.font, count, xPos + 17 - mc.font.width(count), yPos + 9, 0xFFFFFF, true);
+			}
+		}
+	}
+
+	@Override
+	public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+		super.render(graphics, mouseX, mouseY, partialTicks);
+		renderGhostSlotCounts(graphics, mouseX, mouseY);
 	}
 
 	@Override
@@ -107,16 +136,12 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 	private List<Component> addToTooltip(List<Component> list, int slot) {
 		if (slot < 0 || slot >= 12)
 			return list;
-		// В Create используется getTranslatedKeyMessage().getString(), если ControlsUtil возвращает KeyMapping:
-		// list.add(CreateLang.translateDirect("linked_controller.frequency_slot_" + ((slot % 2) + 1), ControlsUtil.getControls().get(slot / 2).getTranslatedKeyMessage().getString()).withStyle(ChatFormatting.GOLD));
-		// Если у вас getControls().get возвращает строку, используйте ваш способ:
 		String key = ControlsUtil.getControls().get(slot / 2);
 		String keyName = Component.translatable(key).getString();
 		list.add(CreateLang.translateDirect("linked_controller.frequency_slot_" + ((slot % 2) + 1), keyName)
 				.copy().withStyle(ChatFormatting.GOLD));
 		return list;
 	}
-
 
 	public List<Rect2i> getExtraAreas() {
 		return extraAreas;

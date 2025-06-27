@@ -66,12 +66,18 @@ public class LinkedControllerServerHandler {
 			// Если пришёл отпуск (release), удаляем все entry для этих частот немедленно
 			for (Couple<ItemStack> activated : frequencies) {
 				Iterator<ManualFrequencyEntry> it = list.iterator();
+				boolean found = false;
 				while (it.hasNext()) {
 					ManualFrequencyEntry entry = it.next();
 					if (entry.getFrequency().equals(activated)) {
 						LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
 						it.remove();
+						found = true;
 					}
+				}
+				if (!found) {
+					// Если не нашли ManualFrequencyEntry (например, истёк timeout), всё равно удаляем виртуальный передатчик!
+					LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
 				}
 			}
 			return;
