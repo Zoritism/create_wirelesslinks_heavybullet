@@ -11,10 +11,11 @@ import java.util.Map.Entry;
 import java.util.UUID;
 
 /**
- * Серверная логика Linked Controller теперь полностью повторяет механику Create:
+ * Серверная логика Linked Controller:
  * - Сигналы держатся только пока кнопка удерживается (pressed=true), сбрасываются мгновенно при отпускании (pressed=false).
  * - Каждая кнопка/канал = ManualFrequencyEntry, обновляется при нажатии, удаляется при отпускании.
- * - tick() вызывается только для очистки залипших сигналов при обрыве соединения (если release-пакет не пришёл).
+ * - tick() очищает только сигналы, если release-пакет вообще не пришёл (например, клиент вылетел).
+ * - Главное исправление: отпускание кнопки (pressed=false) МГНОВЕННО удаляет сигнал, независимо от таймера.
  */
 public class LinkedControllerServerHandler {
 
@@ -39,6 +40,7 @@ public class LinkedControllerServerHandler {
 				ManualFrequencyEntry freqEntry = subIt.next();
 				freqEntry.decrement();
 				if (!freqEntry.isAlive()) {
+					// Удаляем только если не был принудительно удалён через release
 					LinkHandler.get(level).removeVirtualTransmitter(freqEntry.getFrequency(), entry.getKey());
 					subIt.remove();
 				}
@@ -52,7 +54,7 @@ public class LinkedControllerServerHandler {
 	/**
 	 * Приходит при нажатии или отпускании кнопки на контроллере.
 	 * - pressed=true: создаёт ManualFrequencyEntry (если нет), включает сигнал и устанавливает TIMEOUT.
-	 * - pressed=false: немедленно удаляет запись (и выключает сигнал).
+	 * - pressed=false: немедленно удаляет запись (и выключает сигнал), даже если держали сотни тиков.
 	 */
 	public static void receivePressed(Level level, BlockPos pos, UUID playerId, List<Couple<ItemStack>> frequencies, boolean pressed) {
 		if (level == null || playerId == null || frequencies == null)
@@ -60,28 +62,34 @@ public class LinkedControllerServerHandler {
 
 		Collection<ManualFrequencyEntry> list = receivedInputs.computeIfAbsent(playerId, $ -> new ArrayList<>());
 
+		if (!pressed) {
+			// Если пришёл отпуск (release), удаляем все entry для этих частот немедленно
+			for (Couple<ItemStack> activated : frequencies) {
+				Iterator<ManualFrequencyEntry> it = list.iterator();
+				while (it.hasNext()) {
+					ManualFrequencyEntry entry = it.next();
+					if (entry.getFrequency().equals(activated)) {
+						LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
+						it.remove();
+					}
+				}
+			}
+			return;
+		}
+
 		WithNext:
 		for (Couple<ItemStack> activated : frequencies) {
 			Iterator<ManualFrequencyEntry> it = list.iterator();
 			while (it.hasNext()) {
 				ManualFrequencyEntry entry = it.next();
 				if (entry.getFrequency().equals(activated)) {
-					if (!pressed) {
-						// Сброс сигнала: удаляем entry и снимаем виртуальный передатчик
-						LinkHandler.get(level).removeVirtualTransmitter(activated, playerId);
-						it.remove();
-					} else {
-						// Обновляем позицию и таймер (если вдруг пришло повторное нажатие)
-						entry.updatePosition(pos);
-						entry.setTimeout(TIMEOUT);
-						LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);
-					}
+					// Обновляем позицию и таймер (если вдруг пришло повторное нажатие)
+					entry.updatePosition(pos);
+					entry.setTimeout(TIMEOUT);
+					LinkHandler.get(level).setVirtualTransmitter(activated, playerId, 15);
 					continue WithNext;
 				}
 			}
-
-			if (!pressed)
-				continue;
 
 			// Если нет такой записи, создаём новую и включаем сигнал
 			ManualFrequencyEntry entry = new ManualFrequencyEntry(pos, activated, TIMEOUT);
