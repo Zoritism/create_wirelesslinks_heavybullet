@@ -45,8 +45,43 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 		BlockPos pos = ctx.getClickedPos();
 		BlockState state = level.getBlockState(pos);
 
-		// Если клик по нашему лекторну — всегда отдаём обработку блоку!
+		// Делегация логики блоку лекторна — только инициируем действия!
 		if (state.getBlock() == ModBlocks.LECTERN_CONTROLLER.get()) {
+			// Просто ПКМ по своему лекторну — инициируем установку контроллера через блок (раньше было ctrl/shift)
+
+				if (!level.isClientSide) {
+					var be = level.getBlockEntity(pos);
+					if (be instanceof LecternControllerBlockEntity lectern) {
+						ItemStack lecternController = lectern.getController();
+						// Если в лекторне уже есть контроллер — ничего не делаем
+						if (lecternController.isEmpty()) {
+							ItemStack stack = player.isCreative() ? ctx.getItemInHand().copy() : ctx.getItemInHand().split(1);
+							lectern.setController(stack);
+							lectern.sendData();
+							return InteractionResult.SUCCESS;
+						}
+					}
+					return InteractionResult.SUCCESS;
+				}
+
+
+			// Shift+ПКМ по своему лекторну — инициируем извлечение через блок
+			if (player.isShiftKeyDown()) {
+				if (!level.isClientSide) {
+					var be = level.getBlockEntity(pos);
+					if (be instanceof LecternControllerBlockEntity lectern) {
+						ItemStack lecternController = lectern.getController();
+						if (!lecternController.isEmpty()) {
+							lectern.dropController(state);
+							lectern.setController(ItemStack.EMPTY); // очищаем NBT у лекторна после извлечения контроллера
+							lectern.sendData();
+							return InteractionResult.SUCCESS;
+						}
+					}
+				}
+				return InteractionResult.SUCCESS;
+			}
+			// Прочие случаи — передаём управление блоку (возвращаем PASS)
 			return InteractionResult.PASS;
 		}
 

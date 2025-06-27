@@ -44,7 +44,7 @@ public class LecternControllerBlock extends LecternBlock {
         ItemStack held = player.getItemInHand(hand);
         ItemStack lecternController = lectern.getController();
 
-        // Вставить контроллер обычным ПКМ если lectern пустой
+        // Вставить контроллер — теперь просто ПКМ (без ctrl/shift)
         if (lecternController.isEmpty() && held.getItem() == ModItems.LINKED_CONTROLLER.get()) {
             if (!level.isClientSide) {
                 ItemStack insert = player.isCreative() ? held.copy() : held.split(1);
@@ -54,11 +54,12 @@ public class LecternControllerBlock extends LecternBlock {
             return InteractionResult.SUCCESS;
         }
 
-        // SHIFT+ПКМ — извлечь контроллер, очистить NBT и заменить на обычный lectern
+        // SHIFT+ПКМ — извлечь контроллер и заменить на обычный lectern, при этом очищая NBT лекторна
         if (player.isShiftKeyDown() && !lecternController.isEmpty()) {
             if (!level.isClientSide) {
                 lectern.dropController(state);
-                lectern.setController(ItemStack.EMPTY); // ОЧИЩАЕМ NBT!
+                // Очищаем NBT у лекторна после извлечения контроллера
+                lectern.setController(ItemStack.EMPTY);
                 lectern.sendData();
                 replaceWithLectern(state, level, pos);
             }
@@ -81,7 +82,8 @@ public class LecternControllerBlock extends LecternBlock {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof LecternControllerBlockEntity lectern && !lectern.getController().isEmpty()) {
                 lectern.dropController(oldState);
-                lectern.setController(ItemStack.EMPTY); // ОЧИЩАЕМ NBT при удалении блока
+                // Очищаем NBT у лекторна после извлечения контроллера при удалении блока
+                lectern.setController(ItemStack.EMPTY);
             }
             super.onRemove(oldState, level, pos, newState, isMoving);
         }
