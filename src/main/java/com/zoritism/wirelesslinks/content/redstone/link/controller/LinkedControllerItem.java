@@ -38,7 +38,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	}
 
 	@Override
-	public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext ctx) {
+	public InteractionResult useOn(UseOnContext ctx) {
 		Player player = ctx.getPlayer();
 		if (player == null) return InteractionResult.PASS;
 		Level level = ctx.getLevel();
@@ -64,14 +64,14 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 
 					// Вставить контроллер, если лекторн пустой
 					if (lecternController.isEmpty()) {
-						ItemStack insert = player.isCreative() ? stack.copy() : stack.split(1);
+						ItemStack insert = player.isCreative() ? ctx.getItemInHand().copy() : ctx.getItemInHand().split(1);
 						lectern.setController(insert);
 						lectern.sendData();
 						return InteractionResult.SUCCESS;
 					}
 
-					// Режим управления: если контроллер уже есть и игрок рядом
-					if (!lecternController.isEmpty() && isPlayerInLecternRange(player, pos)) {
+					// Режим управления: если контроллер уже есть (без проверки расстояния)
+					if (!lecternController.isEmpty()) {
 						lectern.tryStartUsing(player);
 						return InteractionResult.SUCCESS;
 					}
@@ -94,6 +94,12 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 	}
 
 	@Override
+	@Deprecated // Не используется Forge приоритетно при наличии useOn
+	public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext ctx) {
+		return InteractionResult.PASS;
+	}
+
+	@Override
 	public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
 		ItemStack stack = player.getItemInHand(hand);
 
@@ -104,7 +110,7 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 			return InteractionResultHolder.success(stack);
 		}
 
-		// НЕ переходить в режим управления если целимся в лекторн (это уже обработает onItemUseFirst!)
+		// НЕ переходить в режим управления если целимся в лекторн (это уже обработает useOn!)
 		if (!player.isShiftKeyDown()) {
 			if (level.isClientSide)
 				DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> LinkedControllerClientHandler::toggle);
@@ -159,16 +165,5 @@ public class LinkedControllerItem extends Item implements MenuProvider {
 				return renderer;
 			}
 		});
-	}
-
-	/** Проверка, находится ли игрок в квадрате 3x3 вокруг центра блока (радиус 1) */
-	private static boolean isPlayerInLecternRange(Player player, BlockPos lecternPos) {
-		double px = player.getX();
-		double py = player.getY();
-		double pz = player.getZ();
-		double cx = lecternPos.getX() + 0.5;
-		double cy = lecternPos.getY() + 0.5;
-		double cz = lecternPos.getZ() + 0.5;
-		return Math.abs(px - cx) <= 1.0 && Math.abs(py - cy) <= 1.0 && Math.abs(pz - cz) <= 1.0;
 	}
 }
