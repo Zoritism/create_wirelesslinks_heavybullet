@@ -24,7 +24,6 @@ import net.minecraft.world.item.ItemStack;
 
 public class LinkedControllerItemRenderer extends CustomRenderedItemModelRenderer {
 
-	// Измени имя модели
 	protected static final ResourceLocation POWERED = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller_powered");
 	protected static final ResourceLocation BUTTON = new ResourceLocation(WirelessLinksMod.MODID, "item/linked_controller/button");
 
@@ -38,9 +37,7 @@ public class LinkedControllerItemRenderer extends CustomRenderedItemModelRendere
 			buttons.add(LerpedFloat.linear().startWithValue(0));
 	}
 
-	public static void ensureClientHandlerLoaded() {
-		// Просто статический вызов, чтобы триггерить загрузку класса и регистрацию событий
-	}
+	public static void ensureClientHandlerLoaded() {}
 
 	public static void tick() {
 		if (Minecraft.getInstance().isPaused())
