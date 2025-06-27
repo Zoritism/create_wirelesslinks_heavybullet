@@ -4,6 +4,7 @@ import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkBlockEntity;
 import com.zoritism.wirelesslinks.content.redstone.link.RedstoneLinkRenderer;
 import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerClientHandler;
 import com.zoritism.wirelesslinks.content.redstone.link.controller.LinkedControllerScreen;
+import com.zoritism.wirelesslinks.foundation.model.ModelSwapper;
 import com.zoritism.wirelesslinks.registry.ModBlockEntities;
 import com.zoritism.wirelesslinks.registry.ModBlocks;
 import com.zoritism.wirelesslinks.registry.ModMenus;
@@ -21,9 +22,14 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 @Mod.EventBusSubscriber(modid = "wirelesslinks", value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class ClientInit {
 
+    private static final ModelSwapper MODEL_SWAPPER = new ModelSwapper();
+
     /** вызывается из мод-класса в конструкторе */
     public static void init() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+
+        // ► подключаем ModelSwapper для подмены моделей предметов/блоков
+        MODEL_SWAPPER.registerListeners(modBus);
 
         // ► экран и рендереры можем регистрировать сразу
         modBus.addListener((RegisterClientReloadListenersEvent e) -> {

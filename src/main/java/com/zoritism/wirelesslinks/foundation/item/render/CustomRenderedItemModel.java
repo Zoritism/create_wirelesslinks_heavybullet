@@ -18,10 +18,8 @@ public class CustomRenderedItemModel extends BakedModelWrapper<BakedModel> {
 	}
 
 	@Override
-	public BakedModel applyTransform(ItemDisplayContext cameraItemDisplayContext, PoseStack mat,
-		boolean leftHand) {
-		// Super call returns originalModel, but we want to return this, else BEWLR
-		// won't be used.
+	public BakedModel applyTransform(ItemDisplayContext cameraItemDisplayContext, PoseStack mat, boolean leftHand) {
+		// Возвращаем this вместо оригинальной модели — важно для кастомного рендера
 		super.applyTransform(cameraItemDisplayContext, mat, leftHand);
 		return this;
 	}
@@ -29,5 +27,4 @@ public class CustomRenderedItemModel extends BakedModelWrapper<BakedModel> {
 	public BakedModel getOriginalModel() {
 		return originalModel;
 	}
-
 }

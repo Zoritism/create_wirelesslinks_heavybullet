@@ -2,11 +2,8 @@ package com.zoritism.wirelesslinks.foundation.item.render;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
-
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
-import com.tterrag.registrate.util.nullness.NonNullBiConsumer;
-import com.tterrag.registrate.util.nullness.NonNullFunction;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.resources.ResourceLocation;
@@ -15,45 +12,13 @@ import net.minecraftforge.registries.ForgeRegistries;
 
 public class CustomItemModels {
 
-	private final Multimap<ResourceLocation, NonNullFunction<BakedModel, ? extends BakedModel>> modelFuncs = MultimapBuilder.hashKeys().arrayListValues().build();
-	private final Map<Item, NonNullFunction<BakedModel, ? extends BakedModel>> finalModelFuncs = new IdentityHashMap<>();
-	private boolean funcsLoaded = false;
+	private final Map<Item, Function<BakedModel, ? extends BakedModel>> finalModelFuncs = new IdentityHashMap<>();
 
-	public void register(ResourceLocation item, NonNullFunction<BakedModel, ? extends BakedModel> func) {
-		modelFuncs.put(item, func);
+	public void register(Item item, Function<BakedModel, ? extends BakedModel> func) {
+		finalModelFuncs.put(item, func);
 	}
 
-	public void forEach(NonNullBiConsumer<Item, NonNullFunction<BakedModel, ? extends BakedModel>> consumer) {
-		loadEntriesIfMissing();
+	public void forEach(BiConsumer<Item, Function<BakedModel, ? extends BakedModel>> consumer) {
 		finalModelFuncs.forEach(consumer);
 	}
-
-	private void loadEntriesIfMissing() {
-		if (!funcsLoaded) {
-			loadEntries();
-			funcsLoaded = true;
-		}
-	}
-
-	private void loadEntries() {
-		finalModelFuncs.clear();
-		modelFuncs.asMap().forEach((location, funcList) -> {
-			Item item = ForgeRegistries.ITEMS.getValue(location);
-			if (item == null) {
-				return;
-			}
-
-			NonNullFunction<BakedModel, ? extends BakedModel> finalFunc = null;
-			for (NonNullFunction<BakedModel, ? extends BakedModel> func : funcList) {
-				if (finalFunc == null) {
-					finalFunc = func;
-				} else {
-					finalFunc = finalFunc.andThen(func);
-				}
-			}
-
-			finalModelFuncs.put(item, finalFunc);
-		});
-	}
-
 }
