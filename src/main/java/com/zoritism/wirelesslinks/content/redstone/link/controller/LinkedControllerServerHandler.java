@@ -12,12 +12,10 @@ import java.util.*;
 
 /**
  * Серверная логика Linked Controller максимально по Create, но с нашими частотами Couple<ItemStack>.
- * - Сигналы держатся пока кнопка удерживается (pressed=true) или до истечения таймаута (если release не пришёл).
- * - Таймаут ПРОДЛЕВАЕТСЯ только когда реально приходит новый pressed=true от игрока (каждый тик от клиента!).
+ * - Сигналы держатся пока кнопка удерживается (pressed=true), сбрасываются только по отпусканию или если pressed=true перестал приходить (таймаут).
+ * - Таймаут уменьшается только если pressed=true не пришло ни разу за тик; если пришло - таймаут сбрасывается.
  * - Только release или истечение таймаута сбрасывает сигнал и виртуальный передатчик.
  * - Используется WorldAttached для правильной работы в мульти-мире.
- *
- * Исправлено: таймаут сбрасывается только если pressed=true НЕ пришёл ни разу за тик.
  */
 public class LinkedControllerServerHandler {
 
@@ -42,12 +40,11 @@ public class LinkedControllerServerHandler {
 			while (subIt.hasNext()) {
 				ManualFrequencyEntry freqEntry = subIt.next();
 
-				// Таймер декрементируется ТОЛЬКО если не было ни одного pressed=true за тик!
-				if (!freqEntry.heldThisTick) {
-					freqEntry.decrement();
-				} else {
-					// Если был сигнал, сбрасываем таймер на максимум (держим сигнал пока держит кнопку)
+				// Если в этом тике была хотя бы одна команда pressed=true, сбрасываем таймаут на максимум
+				if (freqEntry.heldThisTick) {
 					freqEntry.setTimeout(TIMEOUT);
+				} else {
+					freqEntry.decrement();
 				}
 				freqEntry.heldThisTick = false; // сброс на следующий тик
 
