@@ -1,0 +1,12 @@
+{
+  "item.wirelesslinks.linked_controller": "Linked Controller",
+  "block.wirelesslinks.redstone_link": "Redstone Link",
+  "block.wirelesslinks.lectern_controller": "Lectern Controller",
+  "gui.wirelesslinks.linked_controller.title": "Linked Controller Configuration",
+  "gui.wirelesslinks.linked_controller.reset": "Reset",
+  "gui.wirelesslinks.linked_controller.confirm": "Confirm",
+  "message.wirelesslinks.bind_mode": "Linked Controller: Bind Mode",
+  "message.wirelesslinks.press_key": "Press any movement key to bind.",
+  "linked_controller.frequency_slot_1": "Slot 1: %s",
+  "linked_controller.frequency_slot_2": "Slot 2: %s"
+}

@@ -11,8 +11,8 @@ public class DefaultControls {
         Minecraft mc = Minecraft.getInstance();
         return new Vector<>(List.of(
                 mc.options.keyUp,     // W
-                mc.options.keyLeft,   // A
-                mc.options.keyDown,   // S
+                mc.options.keyDown,   // S (теперь здесь S вместо A)
+                mc.options.keyLeft,   // A (теперь здесь A вместо S)
                 mc.options.keyRight,  // D
                 mc.options.keyJump,   // Space
                 mc.options.keyShift   // Shift

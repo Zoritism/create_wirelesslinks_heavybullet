@@ -2,9 +2,9 @@
 	"credit": "Made with Blockbench",
 	"parent": "block/block",
 	"textures": {
-		"redstone_antenna": "create:block/redstone_antenna",
-		"particle": "create:item/linked_controller",
-		"redstone_bridge": "create:item/linked_controller"
+		"redstone_antenna": "wirelesslinks:block/redstone_antenna",
+		"particle": "wirelesslinks:item/linked_controller",
+		"redstone_bridge": "wirelesslinks:item/linked_controller"
 	},
 	"elements": [
 		{

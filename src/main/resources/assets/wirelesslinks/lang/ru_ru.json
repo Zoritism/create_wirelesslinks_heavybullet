@@ -1,0 +1,12 @@
+{
+  "item.wirelesslinks.linked_controller": "Беспроводной Контроллер",
+  "block.wirelesslinks.redstone_link": "Редстоун-связь",
+  "block.wirelesslinks.lectern_controller": "Кафедра с Контроллером",
+  "gui.wirelesslinks.linked_controller.title": "Настройка Беспроводного Контроллера",
+  "gui.wirelesslinks.linked_controller.reset": "Сбросить",
+  "gui.wirelesslinks.linked_controller.confirm": "Применить",
+  "message.wirelesslinks.bind_mode": "Беспроводной Контроллер: Режим привязки",
+  "message.wirelesslinks.press_key": "Нажмите любую клавишу движения для привязки.",
+  "linked_controller.frequency_slot_1": "Слот 1: %s",
+  "linked_controller.frequency_slot_2": "Слот 2: %s"
+}
