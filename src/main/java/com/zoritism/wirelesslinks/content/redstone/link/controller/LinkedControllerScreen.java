@@ -143,7 +143,8 @@ public class LinkedControllerScreen extends AbstractSimiContainerScreen<LinkedCo
 		int y = topPos;
 
 		background.render(graphics, x, y);
-		graphics.drawString(font, title, x + 15, y + 4, 0x592424, false);
+		// Удалена лишняя строка с заголовком, чтобы не было дубляжа "Linked Controller"
+		// graphics.drawString(font, title, x + 15, y + 4, 0x592424, false);
 
 		// Если реализуете GuiGameElement — раскомментируйте этот блок:
 		// GuiGameElement.of(menu.contentHolder).<GuiGameElement.GuiRenderBuilder>at(x + background.getWidth() - 4, y + background.getHeight() - 56, -200)
